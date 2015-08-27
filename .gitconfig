@@ -1,0 +1,30 @@
+[core]
+    autocrlf = input
+    editor = emacsclient
+    sharedRepository = group
+[user]
+    email = michael.weylandt@gmail.com
+    name = Michael Weylandt
+[push]
+    default = simple
+[alias]
+    current-branch = rev-parse --abbrev-ref HEAD
+    cb = rev-parse --abbrev-ref HEAD
+    tree = log --graph --decorate --pretty=oneline --abbrev-commit
+    unstage = reset HEAD --
+    summary = "!sh -c 'git --no-pager shortlog -nse --all'"
+    history = "!sh -c 'git log --pretty=format:%ai | cut -d \" \" -f 1 | sort -r | uniq -c'"
+    amend = commit --amend --no-edit
+    active-branches = for-each-ref --format='%(refname:short)' --sort=authordate --count-8 refs/heads
+    fix = commit --ammend -C HEAD
+    fixall = !git status --porcelain --untracked=no | awk '/^[ADM]/ {print $2} /^R/ {print $2, $4}' | xargs -r -I file /bin/ksh -c 'git commit --fixup $(git log -n 1 --perl-regexp --grep '\\''^.(?!(ixup|quash))'\\'' --pretty=format:%H -- $(echo file | cut -f 1)) file'
+    sed = !git grep -ilz . ${GIT_PREFIX}. | xargs -0 sed -i
+    lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --no-merges origin/master..HEAD
+
+[color]
+    ui = true
+[init]
+    templateDir = ~/.git_template
+[merge]
+    ff = false
+

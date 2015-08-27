@@ -1,0 +1,11 @@
+alias cd.. cd ..
+alias d. dired .
+alias find_git find . -name .git -type d -prune
+alias ls ls -ahl $*
+alias rm rm -i $*
+alias d dired $1
+alias open find-file $1
+alias less find-file $1
+alias diff diff -u $*
+alias l. ls -d .*
+alias cal cal -A1 -B1 $*

@@ -1,0 +1,4 @@
+.mode column
+.headers on
+PRAGMA foreign_keys=1;
+

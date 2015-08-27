@@ -1,0 +1,1 @@
+alias pj import json; print json.dumps(vars(%1) if hasattr(%1, "__dict__") else %1, sort_keys=True, indent=2, separators=(",", ": "))

@@ -1,0 +1,38 @@
+#!/bin/bash
+echo "Checking for org mode result blocks"
+
+echo > /tmp/stash.$$
+
+## Write down a diff showing the _unstaged_ material
+git diff --full-index --binary > /tmp/stash.$$
+
+## From `man test` => -s FILE: FILE exists and has a size greater than zero
+## For our purposes, this checks if there is a meaningful diff
+
+## If there is unstaged material, git stash it
+if [[ -s /tmp/stash.$$ ]] ; then
+    git stash -q --keep-index
+fi ;
+
+FILES_PATTERN='\.org'
+## May give false positives. In that case, remember 'git commit --no-verify'
+FORBIDDEN="RESULTS"
+
+HOOK_RETCODE=0
+
+if git diff --cached --name-only | grep -E $FILES_PATTERN | GREP_COLOR='4;5;37;41' xargs grep --color --with-filename -n $FORBIDDEN; then
+    echo "COMMIT REJECTED: Org mode result blocks should not be commited."
+    echo "git commit --no-verify will avoid this hook"
+    let HOOK_RETCODE=1
+fi
+
+## If unstaged material, take it out of the git stash
+if [[ -s /tmp/stash.$$ ]] ; then
+    git apply --whitespace=nowarn < /tmp/stash.$$ && git stash drop -q
+fi ;
+
+rm /tmp/stash.$$
+
+[ $HOOK_RETCODE -ne 0 ] && exit $HOOK_RETCODE
+echo "No org mode result blocks found"
+exit 0

@@ -1,0 +1,2625 @@
+#+TODO: TODO(t) BROKEN(b) TESTING(T)
+#+TITLE: My Emacs Setup
+#+AUTHOR: Michael Weylandt
+#+PROPERTY: header-args:emacs-lisp :tangle yes :exports code
+#+LATEX_CLASS: mw-report
+This document can be tangled (using org-mode) to produce my ~init.el~
+file. It's presented here (literately) to keep it a bit more organized
+than my previous "wall-of-code" approach.
+
+* Basic Environment
+The basics of my ~init.el~.
+
+As of Emacs 24, there are "long term" plans to move Emacs
+to a lexically scoped Lisp. Currently it is implemented as a opt-in
+file local variable. Similarly, I use other Common Lisp primitives liberally
+within my own code
+#+BEGIN_SRC emacs-lisp :padline no
+;;; -*- lexical-binding:t -*-
+;;; Copyright Michael Weylandt 2014
+;;; Elements taken from various publicly available sources
+;;; Original code may be considered GPL (>=2)
+(require 'cl)
+
+(setq inhibit-startup-message t) ;; The "Hello World" of .emacs
+(setq user-full-name "Michael Weylandt")
+(setq user-mail-address "michael.weylandt@gmail.com")
+(add-to-list 'load-path "~/.emacs.d/lisp")
+
+;; We want to search .emacs.d/lisp recursively
+(let ((default-directory "~/.emacs.d/lisp"))
+  (normal-top-level-add-subdirs-to-load-path))
+#+END_SRC
+
+I also run an Emacs server for quick use with command line git:
+#+BEGIN_SRC emacs-lisp
+(require 'server)
+(unless (server-running-p) (server-start))
+#+END_SRC
+
+I'm a believer in the 80 character line when possible. It does cause
+problems for Org mode's inline source blocks though, see below.
+#+BEGIN_SRC emacs-lisp
+(setq fill-column 80)
+#+END_SRC
+To help enforce this:
+#+BEGIN_SRC emacs-lisp
+(require 'whitespace)
+(setq whitespace-line-column fill-column)
+(setq whitespace-style '(face lines-tail))
+(add-hook 'prog-mode-hook
+          (lambda ()
+            (whitespace-mode)
+            (set-face-attribute 'whitespace-line nil
+                    :background "black"
+                    :bold t
+                    :foreground "#E3C905")))
+#+END_SRC
+Since it's the 21st century:
+#+BEGIN_SRC emacs-lisp
+(setq locale-coding-system 'utf-8)
+#+END_SRC
+I tend to use =ssh= when using tramp:
+#+BEGIN_SRC emacs-lisp
+(setq tramp-default-method "ssh")
+#+END_SRC
+** Mouse Usage
+The mousepad on my laptop is too close to the keyboard and I
+accidentally hit it when I'm typing quickly, so I disable it:
+#+BEGIN_SRC emacs-lisp
+  (dolist (k '([mouse-1] [down-mouse-1] [drag-mouse-1] [double-mouse-1] [triple-mouse-1] [S-down-mouse-1] [S-double-mouse-1] [S-double-down-mouse-1] [S-triple-mouse-1]
+               [mouse-2] [down-mouse-2] [drag-mouse-2] [double-mouse-2] [triple-mouse-2] [S-down-mouse-2] [S-double-mouse-2] [S-double-down-mouse-2] [S-triple-mouse-2]
+               [mouse-3] [down-mouse-3] [drag-mouse-3] [double-mouse-3] [triple-mouse-3] [S-down-mouse-3] [S-double-mouse-3] [S-double-down-mouse-3] [S-triple-mouse-3]
+               [mouse-4] [down-mouse-4] [drag-mouse-4] [double-mouse-4] [triple-mouse-4] [S-down-mouse-4] [S-double-mouse-4] [S-double-down-mouse-4] [S-triple-mouse-4]
+               [mouse-5] [down-mouse-5] [drag-mouse-5] [double-mouse-5] [triple-mouse-5] [S-down-mouse-5] [S-double-mouse-5] [S-double-down-mouse-5] [S-triple-mouse-5]))
+    (global-set-key k (lambda () (interactive))))
+#+END_SRC
+This is the list of mouse bindings given at
+[[http://stackoverflow.com/a/4906698]] but I bind them to a 'do nothing'
+function instead of unbinding them to avoid error messages upon accidental clicking.
+** Window System
+When running over X (or similar):
+  - Set the frame title to be the current buffer name
+  - Use a window flash instead of an audible bell
+  - Using the 'Tomorrow Night Bright' color theme
+#+BEGIN_SRC emacs-lisp
+(when (window-system)
+  (progn
+    (setq frame-title-format '(:eval
+                               (list (getenv "USER")
+                                     "@"
+                                     (or (getenv "HOSTNAME")
+					 (substring (shell-command-to-string "hostname") 0 -1))
+                                     ":: %b "
+                                     (if (buffer-file-name)
+                                         (concat "("
+                                                 (abbreviate-file-name (buffer-file-name))
+                                                 ") ")))))
+    (setq visible-bell 1)
+    (require 'color-theme)
+    (eval-after-load "color theme"
+      '(progn
+         (color-theme-initialize)
+         (color-theme-hober)))
+    (require 'color-theme-tomorrow)
+    (color-theme-tomorrow-night-bright)))
+#+END_SRC
+When running in a terminal:
+  - Turn off menus
+#+BEGIN_SRC emacs-lisp
+(when (not (window-system))
+  (menu-bar-mode -1))
+#+END_SRC
+In both cases
+  - Turn off scroll bars
+  - Turn off tool bars
+#+BEGIN_SRC emacs-lisp
+(if (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+(if (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+#+END_SRC
+** Backup Files
+I keep my backup files out of the way whenever possible:
+#+BEGIN_SRC emacs-lisp
+(setq
+ backup-by-copying t
+ backup-directory-alist
+ '(("." . "~/.saves"))
+ delete-old-versions t
+ kept-new-versions 6
+ kept-old-versions 2
+ version-control t)
+#+END_SRC
+** Code Navigation
+Place the column number in the modeline and the line number along the
+LHS of windows.
+#+BEGIN_SRC emacs-lisp
+(setq linum-format "%3d")
+(require 'linum-off)
+(global-linum-mode 1)
+(column-number-mode)
+#+END_SRC
+
+Which-func mode comes with Emacs and tells you which function
+definition you are currently in:
+#+BEGIN_SRC emacs-lisp
+(require 'which-func)
+(add-to-list 'which-func-modes 'org-mode)
+(which-func-mode 1)
+(setq which-func-unknown "---")
+#+END_SRC
+*************** TODO Fix which-func mode to look in the current line for a headline as well
+*************** END
+
+** Dired
+This speeds up dired just a bit by using xargs to work concurrently:
+#+BEGIN_SRC emacs-lisp
+(require 'find-dired)
+(setq find-ls-option '("-print0 | xargs -0 ls -ld " . "-ld"))
+#+END_SRC
+Discover mode adds a magit style menu to dired:
+#+BEGIN_SRC emacs-lisp
+(require 'discover)
+(global-discover-mode 1)
+#+END_SRC
+Dired is also more useful than the default binding for =C-x C-d=
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-x C-d") 'ido-dired)
+#+END_SRC
+** Global Helpers
+*** Any
+An ~any~ function patterned on Python's:
+#+BEGIN_SRC emacs-lisp
+(require 'cl-lib) ;; Replaces the older 'cl with a better namespace
+(defun any (x) (cl-reduce (lambda (x y) (if x x y)) x))
+#+END_SRC
+*** Repeat Functions
+Repeat functions for elements and lists:
+#+BEGIN_SRC emacs-lisp
+(defun replist (l n)
+  (if (< n 0) (error "Cannot repeat list negative number of times")
+    (if (= n 1) l
+      (append l (replist l (1- n))))))
+
+(defun repelm (e n)
+  (if (< n 0) (error "Cannot repeat element negative number of times")
+    (if (= n 0) nil
+      (cons e (repelm e (1- n))))))
+#+END_SRC
+*** Flatten
+Flatten lists recursively:
+#+BEGIN_SRC emacs-lisp
+(defun flatten (tree)
+  "Force a list of atoms into a single list regardless of how many nested lists
+ there actually are. Useful for handling globbing in eshell functions"
+  (if (atom tree)
+      (list tree)
+    (nconc (flatten (car tree))
+           (if (cdr tree) (flatten (cdr tree))))))
+#+END_SRC
+*** Check Between Pair
+Check if point is between paired delimiters. If =check-quotes= is
+true, check for being between double and single delimiters as well:
+#+BEGIN_SRC emacs-lisp
+(defun between-pair (&optional check-quotes)
+  "Check if point is between paired characters.
+   Only checks [],(), and {} by default.
+   Will check '' and \"\" if check-quotes is not-nil.
+  "
+   (interactive)
+   (or (and (equal (preceding-char) 91) ;; []
+            (equal (following-char) 93))
+       (and (equal (preceding-char) 40) ;; ()
+            (equal (following-char) 41))
+       (and (equal (preceding-char) 123) ;; {}
+            (equal (following-char) 125))
+       (if check-quotes
+           (or (and (equal (preceding-char) 34) ;; '
+                    (equal (following-char) 34))
+               (and (equal (preceding-char) 39) ;; "
+                    (equal (following-char) 39))
+               (and (equal (following-char) 196)
+                    (equal (following-char) 196)) ;; ` (in some modes)
+         nil))))
+#+END_SRC
+*** Unbinding
+These names are absurd so I set better aliases:
+#+BEGIN_SRC emacs-lisp
+(defalias 'unbind-function 'fmakunbound)
+(defalias 'unbind-variable 'makunbound)
+#+END_SRC
+** Increment and Decrement At Point
+From [[http://emacsredux.com/blog/2013/07/25/increment-and-decrement-integer-at-point/][Emacs Redux]], I can increment or decrement the integer at point:
+#+BEGIN_SRC emacs-lisp
+(require 'thingatpt)
+
+(defun thing-at-point-goto-end-of-integer ()
+  "Go to end of integer at point."
+  (let ((inhibit-changing-match-data t))
+    ;; Skip over optional sign
+    (when (looking-at "[+-]")
+      (forward-char 1))
+    ;; Skip over digits
+    (skip-chars-forward "[[:digit:]]")
+    ;; Check for at least one digit
+    (unless (looking-back "[[:digit:]]")
+      (error "No integer here"))))
+(put 'integer 'beginning-op 'thing-at-point-goto-end-of-integer)
+
+(defun thing-at-point-goto-beginning-of-integer ()
+  "Go to end of integer at point."
+  (let ((inhibit-changing-match-data t))
+    ;; Skip backward over digits
+    (skip-chars-backward "[[:digit:]]")
+    ;; Check for digits and optional sign
+    (unless (looking-at "[+-]?[[:digit:]]")
+      (error "No integer here"))
+    ;; Skip backward over optional sign
+    (when (looking-back "[+-]")
+      (backward-char 1))))
+(put 'integer 'beginning-op 'thing-at-point-goto-beginning-of-integer)
+
+(defun thing-at-point-bounds-of-integer-at-point ()
+  "Get boundaries of integer at point."
+  (save-excursion
+    (let (beg end)
+      (thing-at-point-goto-beginning-of-integer)
+      (setq beg (point))
+      (thing-at-point-goto-end-of-integer)
+      (setq end (point))
+      (cons beg end))))
+(put 'integer
+     'bounds-of-thing-at-point
+     'thing-at-point-bounds-of-integer-at-point)
+
+(defun thing-at-point-integer-at-point ()
+  "Get integer at point."
+  (let ((bounds (bounds-of-thing-at-point 'integer)))
+    (string-to-number (buffer-substring (car bounds) (cdr bounds)))))
+(put 'integer 'thing-at-point 'thing-at-point-integer-at-point)
+
+(defun increment-integer-at-point (&optional inc)
+  "Increment integer at point by one.
+
+With numeric prefix arg INC, increment the integer by INC amount."
+  (interactive "p")
+  (let ((inc (or inc 1))
+        (n (thing-at-point 'integer))
+        (bounds (bounds-of-thing-at-point 'integer)))
+    (delete-region (car bounds) (cdr bounds))
+    (insert (int-to-string (+ n inc)))))
+
+(defun decrement-integer-at-point (&optional dec)
+  "Decrement integer at point by one.
+
+With numeric prefix arg DEC, decrement the integer by DEC amount."
+  (interactive "p")
+  (increment-integer-at-point (- (or dec 1))))
+#+END_SRC
+
+I bind them to ~C-c +~ and ~C-c -~ and find them very useful for
+keyboard macros, though I believe using counters would also be
+useful.
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-c +") 'increment-integer-at-point)
+(global-set-key (kbd "C-c -") 'decrement-integer-at-point)
+#+END_SRC
+** Completion
+Kill completion buffers when I'm done with them:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'minibuffer-exit-hook
+          '(lambda ()
+             (let ((buffer "*Completions*"))
+               (and (get-buffer buffer)
+                    (kill-buffer buffer)))))
+#+END_SRC
+** Enable advanced functions
+#+BEGIN_SRC emacs-lisp
+(put 'narrow-to-region 'disabled nil) ;; C-x n n
+#+END_SRC
+** Save Hooks
+To keep my files tidy, I delete trailing whitespace, update
+timestamps, and force final newlines whenever I save.
+#+BEGIN_SRC emacs-lisp
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+(add-hook 'before-save-hook 'time-stamp)
+(setq require-final-newline t) ;; May cause problems if editing binary
+                               ;; files directly
+;; TODO Look at doing each of these with a fundamental-mode/text-mode hook
+#+END_SRC
+Getting the timestamp regex right is a real pain, so use examples in
+place if you need to update them. For some reason, timestamps are
+considered safe by Emacs, so this keeps Emacs from asking about them:
+
+#+BEGIN_SRC emacs-lisp
+(setq safe-local-variable-values '((time-stamp-pattern .[t])))
+#+END_SRC
+
+This also makes my shebangs executable upon save:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'after-save-hook 'executable-make-buffer-file-executable-if-script-p)
+#+END_SRC
+** ISpell et al                                                    :noexport:
+I use =hunspell= by default with the following settings
+** ISearch -> Occur
+Sometimes when searching for something, it's useful to just see all
+the places it appears in the buffer using =occur=:
+#+BEGIN_SRC emacs-lisp
+(defun isearch-to-occur ()
+  (interactive)
+  (let ((case-fold-earch isearch-case-fold-search))
+    (occur (if isearch-regexp isearch-string (regexp-quote isearch-string)))))
+
+(define-key isearch-mode-map (kbd "C-o") 'isearch-to-occur)
+#+END_SRC
+** Misc Options
+I much prefer unified diffs:
+#+BEGIN_SRC emacs-lisp
+(setq diff-switches "-u")
+#+END_SRC
+Older Emacsen don't have =transient-mark-mode= on by default, but I
+really do find it indispensable:
+#+BEGIN_SRC emacs-lisp
+(setq transient-mark-mode t)
+#+END_SRC
+
+This one is truly indulgent:
+#+BEGIN_SRC emacs-lisp
+(defun lambdify-font ()
+  (interactive)
+  (font-lock-add-keywords
+   nil `(("\\<lambda\\>"
+          (0 (progn (compose-region (match-beginning 0) (match-end 0)
+                                    ,(make-char 'greek-iso8859-7 107))
+                    nil))))))
+(add-hook 'emacs-lisp-mode-hook 'lambdify-font)
+#+END_SRC
+
+Slightly better behaved temp buffers:
+#+BEGIN_SRC emacs-lisp
+(temp-buffer-resize-mode t)
+#+END_SRC
+I can handle large files with ease:
+#+BEGIN_SRC emacs-lisp
+(setq large-file-warning-threshold 100000000) ;; 100 MB
+#+END_SRC
+* Global Keybindings
+I have also mapped ~CAPS~ to ~Control~ in my ~.xmodmap~ which looks
+like:
+#+BEGIN_EXAMPLE
+remove Lock = Caps_Lock
+keysym Caps_Lock = Control_L
+add Control = Control_L
+#+END_EXAMPLE
+
+Recently, I've been getting warnings about the =Scroll_Lock=
+keybinding:
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "<Scroll_Lock>") (lambda () (interactive) nil))
+#+END_SRC
+** Acting on Regions
+<<regions>>
+Using lexical-binding, we can write a simple "binding factory" which
+adjusts certain basic navigation commands to operate on a region when
+one is active.
+
+#+BEGIN_SRC emacs-lisp
+(defun regionize-command (no-region-func with-region-func keybinding)
+  (global-set-key (kbd keybinding) (lambda ()
+                                     (interactive)
+                                     (if (region-active-p)
+                                         (call-interactively with-region-func)
+                                       (call-interactively no-region-func)))))
+
+(regionize-command 'kill-line 'kill-region "C-k")
+(regionize-command 'capitalize-word 'capitalize-region "M-c")
+(regionize-command 'downcase-word 'downcase-region "M-l")
+(regionize-command 'upcase-word 'upcase-region "M-u")
+#+END_SRC
+Note that something like ~regionize-command~ is also used below in my
+~org-mode~ [[org][customizations]].
+
+Since I'm prone to using regions frequently, I use
+~delete-selection-mode~ which will delete a highlighted region if I
+start typing, much like most non-Emacs programs:
+
+#+BEGIN_SRC emacs-lisp
+(delete-selection-mode +1)
+#+END_SRC
+
+I often kill in read only buffers and the error drives me mad:
+#+BEGIN_SRC emacs-lisp
+(setq kill-read-only-ok t)
+#+END_SRC
+** Backwards kill word
+Like a shell:
+#+BEGIN_SRC emacs-lisp
+(global-set-key "\C-w" 'backward-kill-word)
+#+END_SRC
+** Newline Handling
+<<fancy_ret>>
+I personally don't use ~C-j~ for newlines so I bind it to kill the
+line backwards like shells.
+
+#+BEGIN_SRC emacs-lisp
+(defun backward-kill-line (arg)
+  "Kill ARG lines backward."
+  (interactive "p")
+  (kill-line (- 1 arg)))
+(global-set-key (kbd "C-j") 'backward-kill-line)
+#+END_SRC
+
+With ~C-j~ removed, I make it possible to add newlines using ~C-n~ at
+the bottom of a file or ~RET~ anywhere.
+
+#+BEGIN_SRC emacs-lisp
+(setq next-line-add-newlines t)
+#+END_SRC
+
+I try to make "RET" and "C-RET" smart as as follows:
+
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "RET")
+                (lambda ()
+                  (interactive)
+                  ;; If between matched braces, move the close
+                  ;; character of the pair down two lines and then
+                  ;; move back up one and indent
+                  (if (between-pair)
+                      (progn
+                        (newline-and-indent)
+                        (newline-and-indent)
+                        (previous-line)
+                        (indent-for-tab-command))
+                    (progn
+                      (comment-indent-new-line)
+                      ;; Continue comment with one space if in comment
+                      (let ((in-comment (nth 8 (syntax-ppss))))
+                        (if (and in-comment
+                                 ;; ASCII 32 == "Space"
+                                 (not (equal (preceding-char) 32)))
+                            (insert " ")))))))
+
+
+(global-set-key (kbd "C-<return>")
+                (lambda ()
+                  (interactive)
+                  (let ((not-in-comment (null (nth 8 (syntax-ppss)))))
+                    (newline-and-indent)
+                    (if not-in-comment
+                        (comment-dwim 2)))))
+#+END_SRC
+
+This combination achieves four things with regard to comments.
+1. If I am in a comment and hit ~RET~, I move to the next line,
+   which is automatically indented and marked as comment.
+2. If I am in a comment and hit ~C-RET~, the comment ends and point is
+   move to the next line, suitably indented.
+3. If I am not in a comment and hit ~RET~, I move to the next line
+   suitably indented.
+4. If I am not in a comment and hit ~C-RET~, I move to the next line
+   which begins a suitably indented comment.
+
+The ~(null (nth 8 (syntax-ppss)))~ construction is taken from [[http://stackoverflow.com/questions/12815781/][Stefan
+on StackOverflow]].
+
+In addition, if I hit ~RET~ when between a set of paired delimiters,
+we will automatically go from
+
+#+BEGIN_EXAMPLE
+x[(point here)]
+#+END_EXAMPLE
+to
+#+BEGIN_EXAMPLE
+x[
+  (point here)
+]
+#+END_EXAMPLE
+where is very nice for "curly-brace" language and keeps me from
+loosing my sanity with ~electric-pair-mode~ in place.
+** Smarter move to beginning of line
+A nice tweak to ~C-a~ which plays well with indented code:
+#+BEGIN_SRC emacs-lisp
+(defun smarter-move-beginning-of-line (arg)
+  "Move point back to indentation of beginning of line.
+
+Move point to the first non-whitespace character on this line.
+If point is already there, move to the beginning of the line.
+Effectively toggle between the first non-whitespace character and
+the beginning of the line.
+
+If ARG is not nil or 1, move forward ARG - 1 lines first.
+If point reaches the beginning or end of the buffer, stop there."
+
+  (interactive "^p")
+  (setq arg (or arg 1))
+
+  ;; Move lines first
+  (when (/= arg 1)
+    (let ((line-move-visual nil))
+      (forward-line (1- arg))))
+
+  (if (derived-mode-p 'comint-mode)
+      (comint-bol)
+    (let ((orig-point (point)))
+      (back-to-indentation)
+      (when (= orig-point (point))
+        (move-beginning-of-line 1)))))
+
+(global-set-key [remap move-beginning-of-line]
+                'smarter-move-beginning-of-line)
+#+END_SRC
+Initially cribbed from [[http://emacsredux.com/blog/2013/05/22/smarter-navigation-to-the-beginning-of-a-line/][Emacs Redux]] with =comint= functionality added
+by me.
+** IDO and SMEX
+I find IDO and SMEX endlessly helpful for things like file and
+function completion:
+#+BEGIN_SRC emacs-lisp
+(setq ido-enable-flex-matching t)
+(setq ido-everywhere t)
+(setq ido-create-new-buffer 'always) ;; get out of my way
+(ido-mode 1)
+
+;; SMEX -- IDO for M-x
+(require 'smex)
+(defadvice smex (around space-inserts-hyphen activate compile)
+  (let ((ido-cannot-complete-command
+         `(lambda ()
+            (interactive)
+            (if (string= " " (this-command-keys))
+                (insert ?-)
+              (funcall ,ido-cannot-complete-command)))))
+    ad-do-it))
+#+END_SRC
+On Steve Yegge's advice, I bind most of my commands to their IDO and
+SMEX equivalents as well as dual-binding ~M-x~ to ~C-x C-m~ to work
+well over remote login:
+#+BEGIN_SRC emacs-lisp
+;; IDO Mode
+(global-set-key (kbd "M-x") 'smex)
+(global-set-key (kbd "M-X") 'smex-major-mode-commands)
+
+;; Dual Map M-x because alt is a pain to type
+(global-set-key "\C-x\C-m" 'smex)
+(global-set-key "\C-c\C-m" 'smex)
+
+(global-set-key "\C-x\C-k" 'kill-buffer)
+(global-set-key "\C-co" 'switch-window)
+(global-set-key "\C-x\C-b" 'ibuffer)
+#+END_SRC
+Note that ~C-x C-k~ overrides ~edit-kbd-macro~ but I don't use that
+much anyways.
+
+I have never successfully opened a =doc=, =docx=, =xls=, =xlsx=,
+=ppt=, =pptx=, or =pdf= file successfully with Emacs.
+
+#+BEGIN_SRC emacs-lisp
+(nconc completion-ignored-extensions
+       '("doc" "docx" "xls" "xlsx" "ppt" "pptx" "pdf"))
+#+END_SRC
+There's almost certainly a more elegant way to do that.
+
+I do tend to use certain extensions more than others:
+#+BEGIN_SRC emacs-lisp
+(setq ido-file-extensions-order '(".org" ".py" ".R" ".tex" ".csv"))
+#+END_SRC
+** Eval and Replace
+From [[http://emacsredux.com/blog/2013/06/21/eval-and-replace/][Emacs Redux]], handle inline lisp:
+#+BEGIN_SRC emacs-lisp
+(defun eval-and-replace()
+  "Replace the preceding sexp with its value. This allows little bits of lisp
+   to be evaluated in code"
+  (interactive)
+  (backward-kill-sexp)
+  (condition-case nil
+      (prin1 (eval (read (current-kill 0)))
+             (current-buffer))
+    (error (message "Invalid expression")
+           (insert (current-kill 0))))
+  (setq kill-ring (cdr kill-ring)))
+(global-set-key (kbd "C-c e") 'eval-and-replace)
+#+END_SRC
+I've adjusted it to clean up the kill ring after use.
+** Undo Tree
+A much more intuitive treatment of the undo ring:
+#+BEGIN_SRC emacs-lisp
+(require 'undo-tree)
+(global-undo-tree-mode)
+#+END_SRC
+I find the regular undo bindings terrible:
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-'") 'undo-tree-undo)
+(global-set-key (kbd "C-\\") 'undo-tree-undo)
+#+END_SRC
+These commands are normally tied to non-European character support so
+it;s not a big loss.
+** Windows
+I use window-number to give me a menu choice of windows when I hit
+~C-x o~.
+#+BEGIN_SRC emacs-lisp
+(require 'window-number)
+(window-number-mode)
+(require 'switch-window)
+#+END_SRC
+I have it set to only kick in when >3 windows are open (including the
+minibuffer). See line 170 to change.
+
+Winner mode comes with Emacs and is useful to remembering window
+configs with ~C-c (left)~ and ~C-c (right)~
+#+BEGIN_SRC emacs-lisp
+(when (fboundp 'winner-mode)
+  (winner-mode 1))
+#+END_SRC
+** Function Keys
+*** Diff Buffer With File (F7)
+This function checks a buffer for changes against its saved version
+and displays a nice diff if any are found:
+
+#+BEGIN_SRC emacs-lisp
+(defun compare-buffer-with-disk-file-quick ()
+  "Compare the current buffer with its disk file"
+  (interactive)
+  (save-excursion
+    (let ((current-buffer (buffer-name))
+          (start-with-one (= (count-windows) 1)))
+      (diff-buffer-with-file (current-buffer))
+      (select-window (get-buffer-window "*Diff*" t))
+      (mark-whole-buffer)
+      (diff-context->unified (point-min) (point-max))
+      (beginning-of-buffer)
+      (if (re-search-forward (rot13 "ab qvssreraprf") nil t)
+          (progn
+            (kill-buffer)
+            (select-window (get-buffer-window current-buffer t))
+            (not-modified)
+            (message "No change since last save")
+            (if start-with-one (delete-other-windows)))
+        (progn (toggle-read-only) (message "Type 'q' to exit"))))))
+
+(global-set-key (kbd "<f7>") 'compare-buffer-with-disk-file-quick)
+#+END_SRC
+Note that the funky "ab qrssreraprf" is a rot13 encoding of a string
+which can't be used literally or this function wouldn't work on *this*
+file.
+
+Also note that ~not-modified~ tells Emacs to treat the buffer as not
+modified so it won't ask to save changes. This is a little dangerous,
+but seems to be a good addition.
+*** Buffer Cleanup (F10)
+A basic "clean-up" utility which handles tabs, trailing whitespace,
+etc. It tries to avoid adjusting tabs in Makefiles or indentation in python
+code.
+
+#+BEGIN_SRC emacs-lisp
+(global-set-key
+ (kbd "<f10>")
+ (lambda ()
+   "Clean up trailing whitespace + tabs in buffer; error in in Makefiles"
+   (interactive)
+   (delete-trailing-whitespace)
+   (if (or (string= major-mode "makefile-mode")
+           (string= major-mode "GNUmakefile"))
+       (error "Will not automatically delete tabs in makefiles"))
+   (save-excursion
+     (if (string= major-mode "python-mode")
+         (message "Will not attempt to indent python code")
+       (indent-region (point-min) (point-max) nil))
+     (untabify (point-min) (point-max)))))
+#+END_SRC
+*** Eshell (F5)
+Drop me into an Eshell buffer quickly:
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "<f5>")
+                (lambda ()
+                  "Switch to eshell buffer if showing, else open
+ a new one. If more than 4 windows, eshell will open in the
+ current window; else it will get a new window."
+                  (interactive)
+                  (if (get-buffer-window "*eshell*")
+                      (select-window (get-buffer-window "*eshell*"))
+                    (if (< (count-windows) 4)
+                        (progn (split-window-vertically) (balance-windows)))
+                    (eshell))))
+#+END_SRC
+*** Agenda File (F8) and Recompile (F6)
+I like being able to pull up my AGENDA file quickly: see below for
+more org-customizations.
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "<f8>")
+                (lambda() (interactive) (find-file "~/AGENDA.org")))
+#+END_SRC
+I believe this is better done with a register, but I don't know enough
+about them.
+
+I can trigger makefiles automatically with the ~recompile~ command:
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "<f6>") 'recompile)
+#+END_SRC
+I like the compilation buffer to scroll until there's an error:
+#+BEGIN_SRC emacs-lisp
+(setq compilation-scroll-output t)
+#+END_SRC
+*** Deft
+[[http://jbelvins.org/projects/deft][Deft]] is a tool for rapid note taking. I bind it to F9 and set it to
+use org files by default:
+#+BEGIN_SRC emacs-lisp
+(require 'deft)
+(setq deft-extension "org")
+(setq deft-text-mode 'org-mode)
+(setq deft-use-filename-as-title t)
+(global-set-key (kbd "<f9>") 'deft)
+#+END_SRC
+** Quick Access to this file
+I tweak my Emacs setup often, so I have a global key-binding to access
+this document directly. If the user does not have a ~init.org~, this
+falls back on the ~user-init-file~ variable.
+
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-c I")
+                (lambda ()
+                  (interactive)
+                  (if (file-exists-p "~/.emacs.d/init.org")
+                      (find-file-other-window "~/.emacs.d/init.org")
+                    (find-file-other-window user-init-file))))
+#+END_SRC
+** Proced
+Proced is like =dired= but for processes. It's rarely useful, but
+there's a reasonable and unused key-binding so why not?
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-x p") 'proced)
+(add-hook 'proced-mode-hook
+          (lambda () (proced-toggle-auto-update 1)
+            (proced-toggle-tree 1)))
+#+END_SRC
+* AUCTeX
+[[http://www.gnu.org/software/auctex][AUCTeX]] is a powerful mode for LaTeX editing within Emacs. We include
+some of the standard customizations:
+
+#+BEGIN_SRC emacs-lisp
+(require 'tex-site)
+(setq TeX-auto-save t)
+(setq TeX-parse-self t)
+(setq TeX-PDF-mode t)
+#+END_SRC
+
+Set =AUCTeX= to use the most up-to-date ~pdflatex~ available:
+
+*************** TODO Locate the correct pdflatex binary
+*************** END
+
+#+BEGIN_SRC emacs-lisp
+ ;; (setq latex-run-command "")
+#+END_SRC
+Note that this is used by the [[org][Org-Mode]] PDF setup below.
+
+Finally, I turn on a few small adjustments to AUCTeX which I find
+useful:
+1. Auto-fill for line wrapping
+2. Flyspell for spell checking
+3. LaTeX-math-mode
+4. RefTeX
+#+BEGIN_SRC emacs-lisp
+(add-hook 'LaTeX-mode-hook 'auto-fill-mode) ;; I love this!
+(add-hook 'LaTeX-mode-hook 'flyspell-mode)
+(add-hook 'LaTeX-mode-hook 'LaTeX-math-mode)
+(add-hook 'LaTeX-mode-hook 'turn-on-reftex)
+(setq reftex-plug-into-AUCTeX t)
+#+END_SRC
+
+Finally, I inform AUCTeX of certain environments which should be
+treated as "verbatim" so they don't break code highlighting:
+#+BEGIN_SRC emacs-lisp
+(setq LaTeX-verbatim-environments-local '("minted"))
+#+END_SRC
+This is particularly important since the presence of a ~$~ in
+comments can break LaTeX. It does seem that the AUCTeX way would
+involve putting this as a file-local-variable in LaTeX file styles but
+this works well enough.
+
+I like ~M-q~ to respect my LaTeX in AUCTeX:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'LaTeX-mode-hook
+  (lambda () (local-set-key (kbd "M-q") 'LaTeX-fill-paragraph)))
+#+END_SRC
+
+I'm currently trying out [[http://www.gnu.org/software/auctex/manual/auctex/Folding.html#Folding][TeX-fold-mode]]
+#+BEGIN_SRC emacs-lisp
+(add-hook 'LaTeX-mode-hook
+  (lambda () (TeX-fold-mode 1)))
+#+END_SRC
+which hides some of the more verbose LaTeX markup.
+
+When in ~TeX-fold-mode~:
+- ~C-c C-o C-b~ :: folds the buffer
+- ~C-c C-o b~ :: unfolds the buffer
+* ESS
+ESS is not distributed with Emacs:
+#+BEGIN_SRC emacs-lisp
+(require 'ess-site)
+(require 'ess-bugs-d)
+(require 'ess-jags-d)
+(defalias 'jags-mode 'ess-jags-mode)
+#+END_SRC
+ESS replaces underscores with assignment arrows automatically, but I
+use too many Hadley Wickham packages for that to be useful:
+#+BEGIN_SRC emacs-lisp
+(ess-toggle-underscore nil)
+#+END_SRC
+
+My standard R startup flags to get a clean environment each time.
+#+BEGIN_SRC emacs-lisp
+(setq ess-history-directory "~/.R/")
+(setq inferior-R-args "--no-restore --no-save")
+#+END_SRC
+
+Playing nice with AUCTeX:
+#+BEGIN_SRC emacs-lisp
+(setq ess-swv-plug-into-AUCTeX-p t)
+#+END_SRC
+
+A bug in older ESS tripped the help system on spaces. I believe this
+is fixed now, but this works:
+#+BEGIN_SRC emacs-lisp
+(setq inferior-R--input-?-help-regexp
+      "^ *\\(?:\\(?1:[a-zA-Z ]*?\\?\\{1,2\\}\\) *\\(?2:.+\\)\\)")
+#+END_SRC
+
+Don't prompt for starting working directory:
+#+BEGIN_SRC emacs-lisp
+(setq ess-ask-for-ess-directory nil)
+#+END_SRC
+
+I use R almost exclusively with ESS:
+#+BEGIN_SRC emacs-lisp
+(setq ess-local-process-name "R")
+#+END_SRC
+
+ESS [[fancy_ret][clobbers]] my fancy =RET= so I'll unclobber it here:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'ess-mode-hook (lambda () (local-set-key (kbd "RET") nil)))
+#+END_SRC
+Note that my fancy =C-RET= is also clobbered. I'm not sure if I want
+to adjust that yet.
+
+I also add a key-binding for the ever useful (and hard-to-type)
+=magrittr= =%>%= operator:
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-<tab>") (lambda () (interactive) (insert "%>% ")))
+#+END_SRC
+** Font Lock
+"Font lock" is Emacs-speak for syntax highlighting. I'm a big fan and
+turn on all the syntax highlighting provided by ESS:
+
+#+BEGIN_SRC emacs-lisp
+(setq ess-R-font-lock-keywords '((ess-R-fl-keyword:modifiers . t)
+                                 (ess-R-fl-keyword:fun-defs . t)
+                                 (ess-R-fl-keyword:keywords . t)
+                                 (ess-R-fl-keyword:assign-ops . t)
+                                 (ess-R-fl-keyword:constants . t)
+                                 (ess-fl-keyword:fun-calls . t)
+                                 (ess-fl-keyword:numbers . t)
+                                 (ess-fl-keyword:operators . t)
+                                 (ess-fl-keyword:delimiters . t)
+                                 (ess-fl-keyword:= . t)
+                                 (ess-R-fl-keyword:F&T . t)))
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+(setq inferior-R-font-lock-keywords '((ess-R-fl-keyword:modifiers . t)
+                                 (ess-R-fl-keyword:fun-defs . t)
+                                 (ess-R-fl-keyword:keywords . t)
+                                 (ess-R-fl-keyword:assign-ops . t)
+                                 (ess-R-fl-keyword:constants . t)
+                                 (ess-fl-keyword:fun-calls . t)
+                                 (ess-fl-keyword:numbers . t)
+                                 (ess-fl-keyword:operators . t)
+                                 (ess-fl-keyword:delimiters . t)
+                                 (ess-fl-keyword:= . t)
+                                 (ess-R-fl-keyword:F&T . t)))
+#+END_SRC
+
+** Comint Flags
+These actually tweak all Comint-based modes (including ESS) but I
+think they are reasonable default behaviors to use globally:
+
+Up and down keys move through history and ~C-n~ and ~C-p~ move through
+the transcript:
+#+BEGIN_SRC emacs-lisp
+(define-key comint-mode-map [up] 'comint-previous-matching-input-from-input)
+(define-key comint-mode-map [down] 'comint-next-matching-input-from-input)
+#+END_SRC
+
+Move to where I'm typing or seeing input automatically:
+#+BEGIN_SRC emacs-lisp
+(setq comint-scroll-to-bottom-on-input t)
+(setq comint-scroll-to-bottom-on-output t)
+(setq comint-move-point-for-output t)
+#+END_SRC
+
+Handle colored terminal output:
+#+BEGIN_SRC emacs-lisp
+(setq ansi-color-for-comint-mode 'filter)
+#+END_SRC
+* Python
+A basic python setup for using IPython instead of the regular Python
+interpreter:
+#+BEGIN_SRC emacs-lisp
+(require 'python)
+(setq
+ python-shell-prompt-regexp "\\(In \\[[0-9]+\\]: \\|>>> \\)"
+ python-shell-prompt-output-regexp "\\(Out\\[[0-9]+\\]: \\|\\)"
+ python-shell-completion-setup-code
+ "
+try:
+    from IPython.core.completerlib import module_completion
+    __IPYTHON_AVAILABLE = True
+except ImportError:
+    __IPYTHON_AVAILABLE = False
+    try:
+        import readline
+    except ImportError:
+        def __COMPLETER_all_completions(text): []
+    else:
+        import rlcompleter
+        readline.set_completer(rlcompleter.Completer().complete)
+        def __COMPLETER_all_completions(text):
+            import sys
+            completions = []
+            try:
+                i = 0
+                while True:
+                    res = readline.get_completer()(text, i)
+                    if not res: break
+                    i += 1
+                    completions.append(res)
+            except NameError:
+                pass
+            return completions
+"
+ python-shell-completion-module-string-code
+ "';'.join(module_completion('''%s'''))\n"
+ python-shell-completion-string-code
+ "';'.join(get_ipython().Completer.all_completions('''%s'''))\n")
+#+END_SRC
+Note that I've used a more elaborate value of
+~python-shell-prompt-regexp~ than appears on the internet to ensure
+that org-mode works properly.
+
+=Python.el= steals =C-f= from what it should be:
+#+BEGIN_SRC emacs-lisp
+(eval-after-load 'python '(define-key python-mode-map (kbd "C-f") 'forward-char))
+#+END_SRC
+
+=run-python= doesn't have my favorite behavior so I use this instead:
+#+BEGIN_SRC emacs-lisp
+(defun start-python ()
+  "Start a new Python REPL"
+  (interactive)
+  (let ((new-buffer-name (generate-new-buffer-name "*Python*")))
+    (progn
+      (switch-to-buffer
+       (python-shell-make-comint
+        "python -i" new-buffer-name))
+      (rename-buffer new-buffer-name))))
+#+END_SRC
+This will create a new "*Python*" buffer even if one exists. It's
+still sort of hacky (b/c the stars are automatically added to the
+comint buffer name) but it seems to work.
+** TODO ESS Keybindings
+I remap many of the =python-mode= keybindings to match ESS:
+#+BEGIN_SRC emacs-lisp :tangle no
+(eval-after-load 'python
+'(progn
+   (defun mw-python-mode-eval-region-visibly ()
+     (save-excursion
+       ))
+   (define-key python-mode-map (kbd "C-c C-r")
+     (lambda
+       (save-excursion
+         ))) ; ess-eval-region
+   (define-key python-mode-map (kbd "C-c C-b")
+     ) ; ess-eval-buffer
+
+   (define-key python-mode-map (kbd "C-c C-j")
+      (lambda
+        (save-excursion
+          (end-of-line)
+          (let ((end (point)))
+            (beginning-of-line)
+            (python-shell-send-region))))) ; ess-eval-line
+   (define-key python-mode-map (kbd "C-f C-f") 'python-shell-send-defun))) ; ess-eval-function
+#+END_SRC
+** BROKEN Making Completion work with IPython and regular Python
+I've also worked on the completion to make sure it works well with
+~IPython~ and the regular ~Python~ interactive shell.
+#+BEGIN_SRC emacs-lisp :tangle no
+(setq  python-shell-completion-string-code
+ "__COMPLETE_STRING = '''%s''' and ';'.join(get_ipython().Completer.all_completions(__COMPLETE_STRING)) if __IPYTHON_AVAILABLE else ';'.join(__COMPLETER_all_completions(__COMPLETE_STRING))
+")
+
+This doesn't quite work yet though...
+#+END_SRC
+** Pylint with Emacs
+Flycheck is the best way to use Pylint with Emacs:
+#+BEGIN_SRC emacs-lisp
+;; Configure flymake for Python
+(require 'flycheck)
+(add-hook 'python-mode-hook (lambda ()
+                              (local-set-key (kbd "C-c n")
+                                             'flycheck-next-error)
+                              (local-set-key (kbd "C-c p")
+                                             'flycheck-previous-error)
+                              (local-set-key (kbd "C-c f")
+                                             'flycheck-mode)))
+#+END_SRC
+I generally find =pylint= a bit aggressive in its warnings but that's
+better than the alternative. Still, it's a bit laggy, so I don't
+activate it by default.
+
+The =flycheck= defaults are pretty sane, but a few tweaks are par for
+the course:
+#+BEGIN_SRC emacs-lisp
+(setq flycheck-display-errors-delay 1)
+#+END_SRC
+* Org-Mode
+<<org>> Org-mode is without doubt my most heavily used Emacs mode so I
+have a deep stack of customizations.
+
+I remap ~C-k~ to use the org-mode function ~org-kill~ line only if a
+region is highlighted like I do for other [[regions][regionized]] functions above.
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook
+  (lambda () (local-set-key (kbd "C-k") (lambda ()
+  (interactive)
+  (if (region-active-p)
+      (call-interactively 'kill-region)
+    (call-interactively 'org-kill-line))))))
+#+END_SRC
+
+** Basic Setup
+I use a newer Org-mode than that distributed with core Emacs:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'load-path "~/.emacs.d/org-mode/lisp/")
+(add-to-list 'load-path "~/.emacs.d/org-mode/contrib/lisp" t)
+(require 'org)
+#+END_SRC
+
+Specifically, I'm working with the current release 8.2.6 plus a patch
+of my own to improve the python experience.
+
+Like AUCTeX, I use spell-checking and line-wrapping within Org-mode:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook 'flyspell-mode)
+(add-hook 'org-mode-hook 'turn-on-auto-fill)
+#+END_SRC
+
+For obvious reasons, I bind ~.org~ files to open org-mode by default:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'auto-mode-alist '("\\.org$" . org-mode))
+#+END_SRC
+
+Two useful Org-mode keybindings for motion by headline:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook (lambda ()
+                           (local-set-key "\M-n"
+                                          'outline-next-visible-heading)
+                           (local-set-key "\M-p"
+                                          'outline-previous-visible-heading)))
+#+END_SRC
+
+I use a single agenda file located in my home directory:
+#+BEGIN_SRC emacs-lisp
+(setq org-agenda-files (list "~/AGENDA.org"))
+#+END_SRC
+It may be worthwhile to break out a "personal" agenda file in the
+future.
+
+These appear to be customary global customizations:
+#+BEGIN_SRC emacs-lisp
+(global-set-key "\C-ca" 'org-agenda)
+(global-set-key "\C-cl" 'org-store-link)
+#+END_SRC
+The allow me to pull up my agenda or store a link from anywhere within
+Emacs.
+This allows  me to add a link when relevant
+#+BEGIN_SRC emacs-lisp
+(global-set-key "\C-cL" 'org-insert-link)
+#+END_SRC
+
+I like having footnotes in order:
+#+BEGIN_SRC emacs-lisp
+(setq org-footnote-auto-adjust t)
+#+END_SRC
+By setting ~org-footnote-define-ineline~ I can do LaTeX style inline
+footnotes, but I'm not sure if I prefer those yet.
+
+All of my documents should have an included email, though this
+sometimes plays fun with the =docx= export:
+#+BEGIN_SRC emacs-lisp
+(setq org-export-with-email t)
+#+END_SRC
+
+I also make use of "inline tasks" from time to time
+#+BEGIN_SRC emacs-lisp
+(load-library "org-inlinetask")
+#+END_SRC
+
+Dealing with tags is a bit easier with this:
+#+BEGIN_SRC emacs-lisp
+(setq org-special-ctrl-a/e t)
+#+END_SRC
+
+To avoid having ~auto-fill-mode~ break my inline source blocks, I set
+the following (based on [[http://lists.gnu.org/archive/html/emacs-orgmode/2014-03/msg00953.html][this post]]):
+
+#+BEGIN_SRC emacs-lisp
+(defun org-in-inline-src-p ()
+"Determine if point is within an inline src block."
+(org-in-regexp org-babel-inline-src-block-regexp))
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'fill-nobreak-predicate 'org-in-inline-src-p)))
+#+END_SRC
+
+Finally, there's an odd-interaction with =yasnippet= so I just turn
+off =yasnippet= while in =Org=.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook
+          (lambda ()
+            (yas-minor-mode -1)))
+#+END_SRC
+
+I always forget that =bash= scripts correspond to Emacs' =sh= mode:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-src-lang-modes '("bash" . sh))
+#+END_SRC
+** Org Utilities
+*** Custom Properties
+From [[http://lists.gnu.org/archive/html/emacs-orgmode/2013-05/msg00154.html][Nicolas Goaziou]], this get an alist of all =#+KEYWORD: value=
+items in the document.
+#+BEGIN_SRC emacs-lisp
+(defun org-property-keywords ()
+  "Create an alist of all #+KEY: value pairs found in the buffer"
+  (org-element-map (org-element-parse-buffer 'element) 'keyword
+    (lambda (keyword) (cons (org-element-property :key keyword)
+                       (org-element-property :value keyword)))))
+#+END_SRC
+We provide a small wrapper to only get the one we want:
+#+BEGIN_SRC emacs-lisp
+(defun org-get-property-keyword (kw)
+  "Get the value associated with the #+KEY: line in this buffer.
+Returns nil if #+KEY: is not found."
+  (interactive "sKeyword: ")
+  (cdr (assoc kw (org-property-keywords))))
+#+END_SRC
+
+** Agenda
+I have some hooks to handle task checklists in what I believe is a
+more reasonable way:
+
+Based on Nick Dokos' ~checkbox-list-complete~ [[http://orgmode.org/worg/org-hacks.html#mark-done-when-all-checkboxes-checked][Worg]] entry, I check a
+parent task done when all of its checkboxes are complete. I have
+enhanced the Work version to also, return a task to =TODO= when a
+checkbox is unchecked:
+#+BEGIN_SRC emacs-lisp
+(defun check-parent-when-children-complete ()
+  "Check move a parent to completed state when the checklist items are all [X]"
+  (save-excursion
+    (org-back-to-heading t)
+    (let ((beg (point)) end)
+      (end-of-line)
+      (setq end (point))
+      (goto-char beg)
+      (if (re-search-forward "\\[\\([0-9]*%\\)\\]\\|\\[\\([0-9]*\\\)/\\([0-9]*\\)\\]" end t)
+          (if (match-end 1)
+              (if (equal (match-string 1) "100%")
+                  (org-todo 'done) ;; All done -- do a state change to done
+                (if (progn (org-back-to-heading)
+                           (member (org-get-todo-state) org-done-keywords))
+                    (org-todo 'todo))) ;; If currently marked as done,
+                                       ;; but not 100%, go back to
+                                       ;; TODO
+            (if (and (> (match-end 2) (match-beginning 2))
+                     (equal (match-string 2) (match-string 3)))
+                (org-todo 'done)
+              (if (progn (org-back-to-heading)
+                         (member (org-get-todo-state) org-done-keywords))
+                  (org-todo 'todo))))))))
+#+END_SRC
+
+Similarly, I like to have the checkboxes reset automatically for
+repeating tasks:
+
+#+BEGIN_SRC emacs-lisp
+(defun uncheck-subtasks-if-repeating ()
+  (when (and (member org-state org-done-keywords)
+             (org-get-repeat))
+    (org-reset-checkbox-state-subtree)))
+#+END_SRC
+
+The code above has some limitations:
+1. I believe it only works correctly if the state is "DONE" as opposed
+   to a custom final state
+2. It only rests to "TODO" and doesn't attempt to remember what is was
+   before "DONE"
+3. It doesn't work quite right when on a tree with only one checkbox
+
+To use the above code, we add hooks to the ~C-c C-c~ action. In
+particular, we
+1. Check the parent if needed whenever a checkbox is adjusted
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-checkbox-statistics-hook 'check-parent-when-children-complete)
+#+END_SRC
+2. Uncheck the tasks of a repeating task if the TODO state changed:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-after-todo-state-change-hook 'uncheck-subtasks-if-repeating)
+#+END_SRC
+
+Similarly, I like marking a task as done when it's subtasks are
+completed:
+#+BEGIN_SRC emacs-lisp
+(defun org-check-subtask-completion (n-done n-not-done)
+  "Switch entry to DONE when all sub-entries are done."
+  (if (= n-not-done 0)
+      (org-todo (car org-done-keywords))))
+
+(add-hook 'org-after-todo-statistics-hook 'org-check-subtask-completion)
+#+END_SRC
+
+** Exporter
+I have a variety of custom LaTeX export classes in place as well as
+some customizations to the default latex output:
+#+BEGIN_SRC emacs-lisp
+(require 'ox-latex)
+#+END_SRC
+I sometimes need to use the ~#+BIND:~ pattern for local
+customizations:
+#+BEGIN_SRC emacs-lisp
+(setq org-export-allow-bind-keywords t)
+#+END_SRC
+But these configurations are generally helpful:
+#+BEGIN_SRC emacs-lisp
+(setq org-export-with-sub-superscripts "{}")
+#+END_SRC
+I also prefer putting captions below floats in latex:
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-caption-above nil)
+#+END_SRC
+*** AMS Article
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-classes
+             '("amsart" "
+               \\documentclass[10pt]{amsart}
+               "
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")
+               ))
+#+END_SRC
+*** Report
+An export template which produces nicely official looking reports
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-classes
+             '("mw-report"
+               "\\documentclass[10pt]{amsart}
+                [NO-DEFAULT-PACKAGES]
+                 \\usepackage[english]{isodate}
+                 \\isodate
+
+                \\usepackage[utf8]{inputenc}
+                \\usepackage[T1]{fontenc}
+                \\usepackage{graphicx}
+                \\usepackage{longtable}
+                \\usepackage{float}
+                \\usepackage{wrapfig}
+                \\usepackage{rotating}
+
+                \\usepackage{fixltx2e}
+                \\usepackage[normalem]{ulem}
+                \\usepackage{textcomp}
+                \\usepackage{marvosym}
+
+                \\usepackage[top=2.8cm, bottom=2.8cm, left=3.0cm, right=3.0cm]{geometry}
+                \\usepackage{booktabs}
+                \\usepackage{amsfonts}
+                \\usepackage{amssymb}
+                \\usepackage{amsmath}
+                \\usepackage{amsthm}
+                \\usepackage{amsbsy}
+                \\usepackage{mathrsfs, calrsfs}
+                \\usepackage{stmaryrd}
+                \\usepackage{fancyvrb}
+
+                \\usepackage[usenames,dvipsnames]{xcolor}
+                \\usepackage{hyperref}
+                \\usepackage[all]{hypcap}
+                \\hypersetup{
+                  colorlinks=true,
+                  linkcolor=RoyalBlue,
+                  urlcolor=NavyBlue,
+                  citecolor=ForestGreen}
+
+                \\usepackage{etoolbox}
+                \\makeatletter
+                \\let\\ams@starttoc\\@starttoc
+                \\makeatother
+                \\usepackage[parfill]{parskip}
+                \\makeatletter
+                \\let\\@starttoc\\ams@starttoc
+                \\patchcmd{\\@starttoc}{\\makeatletter}{\\makeatletter\\parskip\\z@}{}{}
+                \\makeatother
+
+                \\let\\oldtocsection=\\tocsection
+                \\let\\oldtocsubsection=\\tocsubsection
+                \\let\\oldtocsubsubsection=\\tocsubsubsection
+                \\renewcommand{\\tocsection}[2]{\\hspace{0em}\\oldtocsection{#1}{#2}}
+                \\renewcommand{\\tocsubsection}[2]{\\hspace{1em}\\oldtocsubsection{#1}{#2}}
+                \\renewcommand{\\tocsubsubsection}[2]{\\hspace{2em}\\oldtocsubsubsection{#1}{#2}}
+
+                \\usepackage{enumerate}
+                \\usepackage{multicol}
+                \\usepackage{microtype}
+
+                \\numberwithin{equation}{section}
+                \\setcounter{tocdepth}{3}
+                \\DeclareMathOperator{\\Var}{Var}
+               "
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")
+               ))
+#+END_SRC
+*** Short Document
+A template based on the Tufte-LaTeX classes which I use for shorter
+documents. The Tufte-LaTeX guidelines don't allow more than two layers
+of nesting in the handout class. It may be worthwhile to base this on
+=tufte-book= instead.
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-classes
+             '("tufte-handout"
+               "\\documentclass{tufte-handout}
+                 [NO-DEFAULT-PACKAGES]
+                 \\usepackage{graphicx, caption, float, enumerate, fancyhdr}
+                 \\usepackage{amsmath, amssymb, amsthm, amsfonts, amsmath}
+                 \\usepackage{nicefrac}
+                 \\usepackage{microtype}
+                 \\usepackage[usenames,dvipsnames]{xcolor}
+                 \\usepackage{hyperref}
+                 %\\usepackage[all]{hypcap}
+
+                 \\definecolor{navyblue}{HTML}{006EB8}
+                 \\hypersetup{colorlinks=true,linkcolor=navyblue,urlcolor=navyblue}
+
+                 \\usepackage{graphicx, booktabs}
+                 \\usepackage{amssymb, amsthm, amsfonts, amsmath}
+                 \\usepackage{mathrsfs, fixltx2e, calrsfs}
+                 \\usepackage{color}
+                 \\renewcommand{\\footnote}{\\marginnote} % Prefer numberless margin notes
+                   % Perhaps there's a better way to distinguish the two
+                \\DeclareMathOperator{\\Var}{Var}
+                "
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ))
+#+END_SRC
+*** MW Thesis Style
+A more casual style based on my Princeton thesis:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-classes
+             '("mw-thesis"
+               "\\documentclass[11pt]{article}
+                 [NO-DEFAULT-PACKAGES]
+                 \\usepackage[letterpaper]{geometry}
+                 \\geometry{margin=1.1in}
+
+                 \\usepackage[english]{isodate}
+                 \\isodate
+
+                 \\usepackage{graphicx, lettrine, datetime, lipsum}
+                 \\usepackage{amssymb, amsthm, amsfonts, amsmath, calrsfs}
+                 \\usepackage{subfigure, mathrsfs, setspace, multicol, booktabs}
+                 \\usepackage{epstopdf, caption, float, enumerate, soul, algorithmic}
+                 \\usepackage{pict2e, fancyhdr, lastpage, ifthen, fixltx2e}
+
+                 \\usepackage[osf]{mathpazo}
+                 \\usepackage[parfill]{parskip}
+
+                 \\usepackage{xcolor}
+                 \\usepackage{hyperref}
+                 \\usepackage[all]{hypcap}
+
+                 \\definecolor{navyblue}{HTML}{006EB8}
+                 \\definecolor{royalblue}{HTML}{0071BC}
+                 \\definecolor{forestgreen}{HTML}{0095BB}
+                 \\hypersetup{
+                     colorlinks=true,
+                     linkcolor=navyblue,
+                     urlcolor=royalblue,
+                     citecolor=forestgreen
+                    }
+                \\DeclareMathOperator{\\Var}{Var}
+                "
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")
+               ))
+#+END_SRC
+*** Email Filter
+Certain LaTeX classes -- in particular the AMS classes -- provide a
+=\email= macro. By default Org places the email in a =\thanks= macro
+inside of =\author= so I pull it out and place it =\email= if the
+document class is one of ~org-latex-classes-with-email~
+#+BEGIN_SRC emacs-lisp
+(defcustom org-latex-classes-with-email '("amsart" "amsbook")
+  "Certain latex classes accept an \\email{} macro in the header.
+   A filter will fill that value when appropriate.")
+#+END_SRC
+[[%20http://lists.gnu.org/archive/html/emacs-orgmode/2014-02/msg00130.html][Nick Dokos]] helped me to set up the filter on the org mailing lists
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-classes-with-email-filter (contents backend info)
+  (if (any (mapcar (lambda (x) (string-match x contents))
+                   org-latex-classes-with-email))
+      (replace-regexp-in-string
+       "\\\\author\\(.*\\){\\(.*\\)\\\\thanks{\\(.*\\)}}"
+      "\\\\author\\1{\\2}\n\\\\email{\\3}"
+       contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-classes-with-email-filter)
+#+END_SRC
+Similarly, org seems to prefer putting labels inside of captions for
+images, which breaks Tufte latex:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-image-label-filter (contents backend info)
+  (if (string-match "tufte" contents)
+      (replace-regexp-in-string
+"\\\\caption{\\\\label{\\(.*\\)}\\(.*\\)}"
+"\\\\caption{\\2}\\\\label{\\1}"
+       contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-image-label-filter)
+#+END_SRC
+*** Minted Highlighting
+Within LaTeX, I use the minted package for source code
+highlighting.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-listings 'minted)
+(add-to-list 'org-latex-packages-alist '("" "minted"))
+#+END_SRC
+This requires that you have the ~pygmentize~ script on your $PATH and
+that ~pdflatex~ is run with the =-shell-escape= flag.
+
+In particular, I prefer Pygments' =tango= style so I use a filter to
+set the =minted= style during LaTeX export.
+#+BEGIN_SRC emacs-lisp
+(defcustom org-latex-minted-default-style "tango"
+  "Default pygments highlight style for latex classes.")
+
+(defun org-latex-minted-style-filter (contents backend info)
+"If the `minted' package is loaded, set the minted style to the
+value of`org-latex-minted-default-style'."
+  (if (string-match "\\usepackage{minted}" contents)
+  (replace-regexp-in-string "usepackage{minted}"
+                            (format "usepackage{minted}\\\\usemintedstyle{%s}"
+                                    org-latex-minted-default-style) contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-minted-style-filter)
+#+END_SRC
+
+Pygments stores all language names in lower case, so we have to
+translate from =R= to =r=:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-minted-langs '(R "r"))
+#+END_SRC
+Similarly, we have to map emacs =conf= mode (used for =.ini= files)
+to pygments' preferred =ini=.
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-minted-langs '(conf "ini"))
+#+END_SRC
+This is based on postings on the Org [[%20http://lists.gnu.org/archive/html/emacs-orgmode/2012-03/msg00614.html][mailing list]] updated for Org
+8.x.
+
+Finally, inconsolata is one of my favorite code fonts:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-packages-alist '("" "inconsolata"))
+#+END_SRC
+
+Note that I currently don't use colored backgrounds because of some
+[[http://tex.stackexchange.com/questions/9097][bugs in minted]] which Verbments [[http://tex.stackexchange.com/questions/102596/minted-vs-texments-vs-verbments][may solve]] but I haven't patched Org to
+use verbments yet.
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-minted-options '(("fontsize" "\\small") ("xleftmargin" "12pt")))
+#+END_SRC
+I indent my code slightly and make it a bit smaller than the body
+text.
+
+*** Futher Latex Tweaks:
+By default, I like to use =amsart= classes:
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-default-class "amsart")
+#+END_SRC
+I find it easier to read code if it's natively fontified in org
+buffers. There is a small performance penalty for this, but the
+legibility is worth it in my experience:
+#+BEGIN_SRC emacs-lisp
+(setq org-src-fontify-natively t)
+#+END_SRC
+Alphabetical list styles like ~a.~ or ~b)~ are occasionally easier on
+the eyes:
+#+BEGIN_SRC emacs-lisp
+(setq org-list-allow-alphabetical t)
+#+END_SRC
+In LaTeX I like the look of the =booktabs= package and I like my
+tables centered by default:
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-tables-booktabs t)
+(setq org-latex-tables-center t)
+(add-to-list 'org-latex-packages-alist '("" "booktabs"))
+#+END_SRC
+
+We also add a fix to allow more complicated footnotes:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-packages-alist '("" "bigfoot"))
+#+END_SRC
+Bigfoot doesn't work with =beamer= so we add a filter to remove it
+#+BEGIN_SRC emacs-lisp
+(defun org-beamer-no-bigfoot (contents backend info)
+ "Remove \\usepackage{bigfoot} from beamer export"
+ (when (org-export-derived-backend-p backend 'beamer)
+  (replace-regexp-in-string "\\\\usepackage{bigfoot}" "" contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-beamer-no-bigfoot)
+#+END_SRC
+
+Since I don't have to deal with non-English documents often, the basic
+LaTeX smart quotes are good enough for me:
+#+BEGIN_SRC emacs-lisp
+(setq org-export-with-smart-quotes t)
+#+END_SRC
+
+Within LaTeX documents, I occasionally want to put on more
+formatting. To keep this from breaking other exporters, I set up a
+custom link which only applies the formatting if targeting TeX:
+
+#+BEGIN_SRC emacs-lisp
+(org-add-link-type
+ "latex" nil
+ (lambda (path desc format)
+   (if (eq format 'latex)
+       (format "\\%s{%s}" path desc)
+     (format "%s" desc))))
+#+END_SRC
+This will handle a link of the form =[[latex:textsc][Title Material]]= as
+=\textsc{Title Material}=
+in LaTeX and as a simple =Title Material= for all other
+exporters.
+
+Since I use minted, I need to customize the LaTeX engine to use the
+~-shell-escape~ flag:
+*************** TODO Rewrite this w/o specific paths to pdflatex and to use the escape below
+*************** END
+#+BEGIN_SRC emacs-lisp
+(defvar latex-batch-shell-escape " -shell-escape -interaction nonstopmode -output-directory %o %f")
+#+END_SRC
+
+Some of my LaTeX classes produce =pyg= and =xwm= temp files so I might
+as well clean those up:
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-logfiles-extensions "pyg")
+(add-to-list 'org-latex-logfiles-extensions "xwm")
+(add-to-list 'org-latex-logfiles-extensions "blg")
+(add-to-list 'org-latex-logfiles-extensions "bbl")
+#+END_SRC
+
+I don't yet have a great way to treat appendices, so I have created an
+"appendix" tag which makes sure that a section is in the appendix of
+a document.
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-appendix-tag-filter (contents backend info)
+"Insert \\appendix before the first appearance of a headline
+ tagged with :appendix:. Ignore subsequent appendix tags"
+  (when (org-export-derived-backend-p backend 'latex)
+    (let ((first-replace
+           (replace-regexp-in-string
+            "\\\\section{\\(.*\\)\\\\hfill{}\\\\textsc{appendix}}\\([[:ascii:]]*\\)"
+            "\\\\appendix\n\\\\section{\\1}\\2"
+            contents)))
+      (replace-regexp-in-string
+       "\\\\section{\\(.*\\)\\\\hfill{}\\\\textsc{appendix}}"
+       "\\\\section{\\1}"
+       first-replace))))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-appendix-tag-filter)
+#+END_SRC
+This could stand to be more elegant.
+
+*************** TODO Figure out how to do a "one time" replace-regexp-in-string
+*************** END
+
+Similarly, the =cappendix= tab includes a =\clearpage= before every
+section:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-clearpage-tag-filter (contents backend info)
+"Insert \\clearpage before the first appearance of a headline
+ tagged with :clearpage:. Ignore subsequent appendix tags"
+  (when (org-export-derived-backend-p backend 'latex)
+      (replace-regexp-in-string
+       "\\\\section{\\(.*\\)\\\\hfill{}\\\\textsc{clearpage}}"
+       "\\\\clearpage\\\\section{\\1}"
+       contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-clearpage-tag-filter)
+#+END_SRC
+
+Occasionally, we need a LaTeX "short title" if the full title is too
+long to go on page headers. This function looks for the
+=#+LATEX_SHORT_TITLE= keyword and uses it if found:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-set-short-title (contents backend info)
+  "Transform \title{...} to \title[...]{...} if the #+LATEX_SHORT_TITLE
+keyword is found."
+  (when (org-export-derived-backend-p backend 'latex)
+    (let ((short-title (org-get-property-keyword "LATEX_SHORT_TITLE")))
+      (if short-title
+        (replace-regexp-in-string
+         "\\\\title{\\(.*\\)}"
+         (format "\\\\title[%s]{\\1}" short-title)
+         contents)
+        contents))))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-set-short-title)
+#+END_SRC
+
+Similarly, we do a Latex short author:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-set-short-author (contents backend info)
+  "Transform \author{...} to \author[...]{...} if the #+LATEX_SHORT_AUTHOR
+keyword is found."
+  (when (org-export-derived-backend-p backend 'latex)
+    (let ((short-author (org-get-property-keyword "LATEX_SHORT_AUTHOR")))
+      (if short-author
+        (replace-regexp-in-string
+         "\\\\author{\\(.*\\)}"
+         (format "\\\\author[%s]{\\1}" short-author)
+         contents)
+        contents))))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-set-short-author)
+#+END_SRC
+
+Finally, if a =BIBLIOGRAPHY= keyword is found, we add a reference at
+the very end of the document:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-set-bibliography (contents backend info)
+  "Add basic bibtex document to a document if the BIBLIOGRAPHY keyword is found"
+  (when (org-export-derived-backend-p backend 'latex)
+    (let ((bib (org-get-property-keyword "BIBLIOGRAPHY"))
+          (bib-style (or (org-get-property-keyword "BIBLIOGRAPHY_STYLE")
+                         "plain")))
+      (if bib
+        (replace-regexp-in-string
+         "\\\\end{document}"
+         (format "
+\\\\clearpage
+\\\\bibliographystyle{%s}
+\\\\bibliography{%s}
+\\\\end{document}" bib-style bib)
+         contents)
+        contents))))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-set-bibliography)
+#+END_SRC
+*** AMS Title/TOC Spacing
+I feel the AMS templates sometimes leave too much space between the
+title and the table of contents. If not-null, this file local variable
+will add a negative =\vspace{}= to bring them closer together:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-add-vspace-before-toc (contents backend info)
+"Add \vspace{} to bring \maketile and \tableofcontents closer together"
+  (when (org-export-derived-backend-p backend 'latex)
+    (if org-latex-title-toc-vspace
+        (replace-regexp-in-string
+         "\\\\maketitle"
+         (format "\\\\maketitle\\\\vspace{%s}" org-latex-title-toc-vspace)
+         contents)
+    contents)))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-add-vspace-before-toc)
+
+(setq org-latex-title-toc-vspace "-0.4in")
+#+END_SRC
+*** Hexification Bug Work Around
+See [[http://lists.gnu.org/archive/html/emacs-orgmode/2014-02/msg01027.html][the org mailing list]].
+
+I used to use this
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-export-filter-final-output-functions
+             (lambda (contents backend info)
+               (replace-regexp-in-string "%3D" "=" contents)))
+#+END_SRC
+but I've removed this hook because the issue appears to be fixed.
+
+That does expose a second issue in ~org-insert-link~ (see [[http://lists.gnu.org/archive/html/emacs-orgmode/2014-03/msg00990.html][my post]] to
+the Org mailing list) which can be worked around by changing
+~org-link-escape-chars~.
+
+#+BEGIN_SRC emacs-lisp
+(defconst org-link-escape-chars
+    '(?\ ?\+ ?\; ?\[ ?\]))
+#+END_SRC
+I think this default should be changed and am lobbying the org developers to
+change it.
+*** Non-LaTeX Export
+Within the non-Linux world, ~docx~ files are unfortunately popular:
+#+BEGIN_SRC emacs-lisp
+(load-library "ox-odt")
+(setq org-odt-preferred-output-format "docx")
+#+END_SRC
+Note that this requires a modern[fn:1] LibreOffice on the $PATH.
+
+For making slideshows, I use both beamer and RevealJS:
+#+BEGIN_SRC emacs-lisp
+(load-library "ox-beamer")
+(load-library "ox-reveal")
+#+END_SRC
+
+** Babel
+*** Activated Languages
+I use the following languages often:
+#+BEGIN_SRC emacs-lisp
+(org-babel-do-load-languages
+ 'org-babel-load-languages '((python . t)
+                             (R . t)
+                             (ditaa . t)
+                             (sh . t)
+                             (latex . t)
+                             (org . t)))
+#+END_SRC
+I use python often, so I need org to not adjust the indentation in my
+code blocks:
+#+BEGIN_SRC emacs-lisp
+(setq org-src-preserve-indentation t)
+#+END_SRC
+I'm not sure if this can be handled on a per language basis.
+
+*** Keybindings
+To clean up Babel output:
+
+#+BEGIN_SRC emacs-lisp
+(defun org-babel-remove-result-one-or-many (x)
+  "Remove the org-babel result block corresponding to the _next_ SRC block.
+   If called with a prefix argument, delete all result blocks in
+   the document.
+
+   Note that, even if points is not on a source block, the result
+   block corresponding to the next result block will be deleted,
+   even crossing over headings."
+  (interactive "P")
+  (if x
+      (org-babel-map-src-blocks nil (org-babel-remove-result))
+    (org-babel-remove-result)))
+
+(org-defkey org-mode-map "\C-c\C-vk" 'org-babel-remove-result-one-or-many)
+#+END_SRC
+*** Graphics
+When using Babel, the following function is very useful for handling
+graphical output:
+
+#+BEGIN_SRC emacs-lisp
+(defun org-babel-local-temp-file ()
+  "Create a temp file in a local __org-figures__ directory
+
+   Useful for saving output of R plot functions in org files.
+
+   Using with R is quite direct. Example:
+   ,#+BEGIN_SRC R :file (org-babel-local-temp-file) :results graphics
+   plot(rnorm(10), rnorm(10))
+   ,#+END_SRC
+
+   A little trickier to use with python: Note that getting in MPL almost
+   certainly requires you to use a persistent session to avoid going crazy.
+
+   ,#+BEGIN_SRC python :session
+   import matplotlib
+   matplotlib.use('Agg')
+   import pylab
+   from pylab import *
+   def savefig():
+       'Mask pylab savefig with our own to get org-file automatically'
+       global __org_file__
+       pylab.savefig(__org_file__)
+       return __org_file__
+   ,#+END_SRC
+
+   ,#+BEGIN_SRC python :var __org_file__=(org-babel-local-temp-file) :results file :session
+   plot(rand(10))
+   savefig()
+   ,#+END_SRC
+
+   should work.
+
+   TODO : put some special casing in org-babel for python not unlike
+           what is in place for R to make this a little more seamless.
+   NB   : Recall that python/matplotlib graphics are stateful by default
+          so clearing the session and/or current plot is necessary
+          to avoid going crazy. The patched ~savefig()~ also needs
+          to be the last line in a code block to ensure things are handed
+          back to org properly.
+
+   Note that HTML export will take the file paths as is (Linux side)
+   so doesn't play nice in the browser by default. There also might be a
+   bug in the <img> tag in the HTML export....
+   "
+
+  (let* ((temporary-file-directory "./__org-figures__/"))
+    (if (not (file-accessible-directory-p temporary-file-directory))
+        (make-directory temporary-file-directory))
+      (concat temporary-file-directory (make-temp-name "figure-") ".png")))
+#+END_SRC
+
+* Eshell
+My eshell is pretty tricked out as well.
+
+I handle =git= as a visual function, but this isn't ideal for all
+uses. In particular, it's nice for diffs (since it acts like a pager),
+but it dies on ~add~, ~push~, etc.
+#+BEGIN_SRC emacs-lisp
+(add-hook 'eshell-mode-hook
+          '(lambda() (add-to-list 'eshell-visual-commands "git")))
+#+END_SRC
+In Emacs 24.4, there will be support for finer-grained treatment of
+~git~ by way of the new variable ~eshell-visual-subcommands~.
+
+Better git handling is provided through =Magit=.
+
+Sometimes I do use ~ansi-term~. If that's true, this sets my default
+shell to =bash= instead of =ksh=:
+
+#+BEGIN_SRC emacs-lisp
+(setq explicit-shell-file-name "/bin/bash")
+#+END_SRC
+** Eshell Commands
+*** Clear
+To clear an =eshell= buffer:
+#+BEGIN_SRC emacs-lisp
+(defun eshell/clear ()
+  (interactive)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (message "Clear eshell buffer"))
+  nil)
+#+END_SRC
+*** Knitr + R
+A run =knitr= on =Rnw= files:
+#+BEGIN_SRC emacs-lisp
+(defun eshell/knit (file)
+  "Run knitr on a file"
+  (shell-command-to-string
+    (concat "R_FORCE_INTERACTIVE=1 Rscript -e 'library(knitr); "
+             (format "knit(deparse(substitute(%s)))'" file))))
+#+END_SRC
+To run R from eshell:
+#+BEGIN_SRC emacs-lisp
+(defalias 'eshell/R 'R)
+#+END_SRC
+*** Clean-LaTeX
+This cleans up the outputs of latex compilation:
+#+BEGIN_SRC emacs-lisp
+
+(defun eshell/clean-latex ()
+  "eshell/clean-latex: Clean up latex junk files in eshell
+
+   Can be called as simply 'clean-latex' at the eshell prompt
+
+   Tests all files in current directory for having a suffix
+   matching org-latex-logfiles-extensions and _indiscriminately_
+   deleting those which do. Always returns nil.
+
+   TODO -- Handle directory path in argument list
+  "
+  (let* ((latex-junk-regex (concat ".\\.\\("
+                                   (cl-reduce
+                                    (lambda (x y)
+                                      (concat x "\\|" y))
+                                    org-latex-logfiles-extensions)
+                                   "\\)$"))
+         (test-and-delete (lambda (x) (if (string-match latex-junk-regex x)
+                                          (progn (message x)
+                                                 (delete-file x))))))
+    (mapc test-and-delete (directory-files "."))
+    nil)) ;; No useful return value, but return nil so shell doesn't
+          ;; print all files
+#+END_SRC
+*** Quick Navigation
+These provide quick navigation and auto-completion to commonly used
+directories:
+#+BEGIN_SRC emacs-lisp
+(defun eshell/__cdq (base &optional path)
+  "Basically implementing the bash function:
+
+    function cdv (){
+        cd $BASE_DIR
+        [ $# -ne 0 ] && cd '$@'
+    }
+
+   in elisp. The __cdq version is not meant to be
+   used directly but is used for cdw, cdv, etc."
+  (if path
+      (eshell/cd (concat (file-name-as-directory base) path))
+    (eshell/cd base)))
+
+(defun cdq-and-pcomplete (dir-head name)
+  (let ((eshell-func-name (concat "eshell/" name))
+        (pcomplete-func-name (concat "pcomplete/" name)))
+  (defalias (intern eshell-func-name)
+    (lambda (&optional path)
+            (eshell/__cdq dir-head path)))
+  (defalias (intern pcomplete-func-name)
+    (lambda ()
+      (let ((dircontents (directory-files dir-head))
+            (subdirs '()))
+        (cl-dolist (e dircontents)
+          (if (and (file-accessible-directory-p (concat dir-head "/" e))
+                   (not (member e '("." ".."))))
+              (setq subdirs (cons e subdirs))))
+        (while (pcomplete-here* subdirs)))))))
+
+;; Alias for common typo
+(cdq-and-pcomplete ".." "cd.")
+#+END_SRC
+It's also a nice little example of lexical scope at its best. [fn:2]
+*** Open Files
+This opens files in a "smart" manner: resizing and opening more
+windows if needed. The use of ~flatten~ allows for both lists of files
+and globbing.
+#+BEGIN_SRC emacs-lisp
+(defun eshell/ff (&rest file-list)
+  (if (> (count-windows) 3)
+      (delete-other-windows))
+  (let ((eshell-window (selected-window))
+        (file-list (flatten file-list)))
+    (mapcar (lambda (x)
+              (select-window (split-window-below))
+              (find-file x)
+              (balance-windows))
+            file-list)
+    (select-window eshell-window)
+    (if (> (count-windows) 4) (delete-window)))
+  (balance-windows)
+  (if (= (length file-list) 1)
+     (select-window
+      (get-buffer-window (file-name-nondirectory (car file-list)))))
+  nil)
+#+END_SRC
+*** Handle Tarballs
+A work in progress handling the packing and unpacking of tarballs:
+#+BEGIN_SRC emacs-lisp
+;; TODO -- Handle other
+(defun eshell/etar (dir-or-tarball)
+  "A 'smart' wrapper around tar and friends.
+If you pass a .tgz or .tar.gz file, it will automatically unpack.
+Similarly, you pass a .zip file.
+
+If you pass a directory, it will automatically pack up into dir.tar.gz.
+
+No functionality ATM for _creating_ non tar.gz archives."
+  (eshell-trap-errors
+   (cond ((string-match "\\(\\.tgz\\|\\.tar\\.gz\\)$" dir-or-tarball)
+          (shell-command-to-string (concat "tar zxvf " dir-or-tarball)))
+         ((string-match "\\(\\.tbz2\\|\\.tar\\.bz2\\)$" dir-or-tarball)
+          (shell-command-to-string (concat "tar jxvf " dir-or-tarball)))
+         ((string-match "\\.zip$" dir-or-tarball)
+          (shell-command-to-string (concat "unzip " dir-or-tarball)))
+         ((string-match "\\.bz2$" dir-or-tarball)
+          (shell-command-to-string (concat "bunzip2 " dir-or-tarball)))
+         ((string-match "\\.gz$" dir-or-tarball)
+          (shell-command-to-string (concat "gunzip " dir-or-tarball)))
+         ((string-match "\\.tar$" dir-or-tarball)
+          (shell-command-to-string (concat "tar xvf " dir-or-tarball)))
+         ((string-match "\\.Z$" dir-or-tarball)
+          (shell-command-to-string (concat "uncompress " dir-or-tarball)))
+         ((string-match "\\.7z$" dir-or-tarball)
+          (shell-command-to-string (concat "7z x " dir-or-tarball)))
+         ;; Make a tarball if a directory
+         (t
+          (if (file-directory-p dir-or-tarball)
+              (shell-command-to-string
+               (concat "tar pczf" (concat dir-or-tarball ".tar.gz" dir-or-tarball)
+                       " " dir-or-tarball))
+            (error "Unknown tarball format"))))))
+
+(defalias 'eshell/extract 'eshell/etar)
+#+END_SRC
+*** Misc
+We wrap =magit-status= to allow easy git access from eshell:
+#+BEGIN_SRC emacs-lisp
+(defun eshell/g (&optional dir)
+  (progn
+    (if dir (magit-status dir) (magit-status))
+    nil))
+#+END_SRC
+*** BROKEN Python
+A [[http://stackoverflow.com/questions/21689675/launching-shell-command-in-eshell-without-prompt-interfence][Work in Progress]] attempting to handle =python= reasonably. Currently
+it opens a =*Python*= buffer if python is called alone, but I want it
+to also handle scripts if more arguments are passed to the python
+executable:
+#+BEGIN_SRC emacs-lisp :tangle no
+(defun eshell/python (&rest cmd-args)
+  (if (not cmd-args)
+      (progn (run-python "python")
+             (select-window (split-window-below))
+             (switch-to-buffer "*Python*")
+             (balance-windows)
+             nil)
+    (progn (eshell-trap-errors
+            (eshell-external-command "python" cmd-args)))))
+#+END_SRC
+** Eshell Customizations
+*** Prompt
+<<prompt>>
+This sets my prompt to be of the form =USER @ HOST: PWD= where =PWD=
+is trimmed if it's very long. I also replace sub-directories of =~=
+with =~= and handle a rough edge of =emacs= relating to =/..=.
+
+Finally, I also add the name of the current git branch if in a repository:
+#+BEGIN_SRC emacs-lisp
+(defun git-get-current-branch (dir)
+"Returns current git branch as a string.
+If not in a repo (or if `git' executable isn't found), returns
+the empty string"
+   (interactive)
+   (when (and (eshell-search-path "git")
+              (locate-dominating-file dir ".git"))
+     (let ((git-out (shell-command-to-string "git current-branch")))
+       (if (> (length git-out) 0)
+                       (concat " [" (substring git-out 0 -1) "]")
+                     " (no branch)"))))
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+(defun shorten-path (dir-path)
+  "Shorten certain directory names for prompt display"
+  (setq dir-path (replace-regexp-in-string (getenv "HOME") "~" dir-path)))
+
+(setq eshell-prompt-function
+      (lambda()
+        (let ((git-branch (git-get-current-branch (eshell/pwd))))
+          (concat (concat (getenv "USER") (if (getenv "HOST")
+                                              (concat "@" (getenv "HOST"))) ":")
+                  ((lambda (path-list)
+                     ;; See the docstring of `expand-file-name` and
+                     ;; 25.8.4 in the Emacs manual "/.." does not
+                     ;; automatically resolve to "/"
+                     (if (equal path-list '("..")) "/"
+                       (if (> (length path-list) 3)
+                           ;; No / if we start with ~
+                           (concat (if (string= (car path-list) "~") "" "/")
+                                   (mapconcat (lambda (elm) (substring elm 0 1))
+                                              (butlast path-list 3)
+                                              "/")
+                                   "/"
+                                   (mapconcat (lambda (elm) elm)
+                                              (last path-list 3)
+                                              "/"))
+                         ((lambda (x)
+                            ;; Handle one letter directory names (like "/")
+                            (if (string= (ignore-errors (substring x 0 1)) "~")
+                                x
+                              (concat "/" x)))
+                          (mapconcat (lambda (elm) elm) path-list "/")))))
+                   ((lambda (x) (if (equal (car x) "") (cdr x) x))
+                    ;; Drop the first element of the string if it's
+                    ;; blank This happens almost always if we have
+                    ;; "/foo/bar/baz" and split on "/" The else clause
+                    ;; only kicks on when we're in ~
+                    (split-string (shorten-path (eshell/pwd)) "/")))
+                  (if (and git-branch
+                               (not (string-match "fatal" git-branch)))
+                          git-branch
+                    nil)
+                  (if (= (user-uid) 0) " # " " $ ")))))
+
+#+END_SRC
+For some reason, =HOST= isn't a standard environment variable.
+
+NB: I had at one point tried to use ~abbreviate-file-name~ instead of
+my own ~shorten-path~ but tweaking ~directory-abbrev-alist~ seemed to
+have odd effects.
+
+*** Completion
+I think eshell completes too aggressively by default (going past the
+point of ambiguity) so I set it to behave more like ~bash~:
+#+BEGIN_SRC emacs-lisp
+(setq eshell-cmpl-cycle-completions nil)
+#+END_SRC
+*** Git Completion
+Based on [[http://masteringemacs.org/articles/2012/01/16/pcomplete-context-sensitive-completion-emacs][the Mastering Emacs blog]] I've put together basic Eshell
+autocompletion for git.
+#+BEGIN_SRC emacs-lisp
+(defconst pcmpl-git-commands
+  '("add" "bisect" "branch" "checkout" "clone"
+    "commit" "diff" "fetch" "grep"
+    "init" "log" "merge" "mv" "pull" "push"
+    "rebase" "reset" "rm" "show" "status" "tag")
+  "List of 'git' sub-commands'")
+
+(defvar pcmpl-git-ref-list-cmd "git for-each-ref refs/ --format='%(refname)'"
+  "The `git' command to run to get a list of refs")
+#+END_SRC
+This is slightly adjusted from the original to deal with my decision
+to use lexical scoping:
+#+BEGIN_SRC emacs-lisp
+(defun pcmpl-git-get-refs (type)
+  "Return a list of `git' refs filtered by TYPE"
+  (with-temp-buffer
+    (insert (shell-command-to-string pcmpl-git-ref-list-cmd))
+    (goto-char (point-min))
+    (let ((ref-list ()))
+      (while (re-search-forward (concat "^refs/" type "/\\(.+\\)$") nil t)
+        (setq ref-list (cons (match-string 1) ref-list)))
+      ref-list)))
+#+END_SRC
+
+This adds remotes to the autocompletion of ~push~, ~pull~, and
+~fetch~. This parses the output of ~git remote -v~ and identifies
+remotes which are either ~fetch~ or ~push~.
+
+NB: there's a tab (ASCII 09) within the output of ~git remote~.
+#+BEGIN_SRC emacs-lisp
+(defun pcmpl-git-get-remotes (type)
+  "Return a list of `git` remotes which have been set as TYPE {fetch/push/pull}.
+   Pull is automatically translated to fetch inside this command"
+  (if (string= type "pull") (setq type "fetch"))
+  (with-temp-buffer
+    (insert (shell-command-to-string "git remote -v"))
+    (goto-char (point-min))
+    (let ((remote-list ()))
+      (while (re-search-forward (concat "^\\([a-zA-Z0-9]+\\)[[:space:]]+\\([a-zA-Z0-9/.]\\)+ +(" type ")$") nil t)
+                (setq remote-list (cons (match-string 1) remote-list)))
+     remote-list)))
+#+END_SRC
+
+I can't figure out how to recover the match string of
+~pcomplete-match~ so I just handle fetch, push, and pull directly.
+#+BEGIN_SRC emacs-lisp
+(defun pcomplete/git ()
+  "Completion for `git'"
+  ;; Completion for the command argument.
+  (pcomplete-here* pcmpl-git-commands)
+  ;; complete files/dirs forever if the command is `add' or `rm'
+  (cond
+   ((pcomplete-match (regexp-opt '("add" "rm")) 1)
+    (while (pcomplete-here (pcomplete-dirs-or-entries))))
+   ;; provide branch completion for the command `checkout'.
+   ((pcomplete-match "checkout" 1)
+    (pcomplete-here* (pcmpl-git-get-refs "heads")))
+   ;; Handle remotes for fetch, push, and pull commands. I'd like to
+   ;; remove the code duplication here going forward
+   ((pcomplete-match "fetch" 1)
+    (pcomplete-here* (pcmpl-git-get-remotes "fetch")))
+   ((pcomplete-match "push" 1)
+    (pcomplete-here* (pcmpl-git-get-remotes "push")))
+   ((pcomplete-match "pull" 1)
+    (pcomplete-here* (pcmpl-git-get-remotes "pull")))
+   ;; Complete only once for a git mv
+   ((pcomplete-match "mv" 1)
+    (pcomplete-here (pcomplete-dirs-or-entries)))))
+#+END_SRC
+** Smaller Autocompletions
+I've also defined an autocompletion for =pdflatex= as
+#+BEGIN_SRC emacs-lisp
+(defun pcomplete/pdflatex ()
+  "Completion for `pdflatex' which is aliased"
+  (pcomplete-here (pcomplete-dirs-or-entries ".tex")))
+#+END_SRC
+Since I have =pdflatex= mapped to an alias which also enables
+~-shell-escape~ this is all I need to run latex.
+
+Similarly, I set =org= to be an eshell function to open orgmode
+files.
+
+#+BEGIN_SRC emacs-lisp
+(defun eshell/org (&optional file)
+  "Open an org-mode file if given. Else, list all org-files in directory."
+  (if file
+    (find-file file)
+  nil))
+
+(defun pcomplete/org ()
+  "Completion for the eshell function `org'"
+  (pcomplete-here (pcomplete-dirs-or-entries ".org")))
+
+#+END_SRC
+
+* Smaller Modes and Features
+** Magit
+The only sane way I know how to handle git in Emacs:
+#+BEGIN_SRC emacs-lisp
+(require 'magit)
+(global-set-key (kbd "C-x g") 'magit-status)
+#+END_SRC
+The default highlight region face is terrible though:
+#+BEGIN_SRC emacs-lisp
+;(set-face-background 'magit-item-highlight "grey20")
+#+END_SRC
+** YAML
+I like YAML as configuration files
+#+BEGIN_SRC emacs-lisp
+(require 'yaml-mode)
+#+END_SRC
+And I prefer 4 space offsets:
+#+BEGIN_SRC emacs-lisp
+(setq yaml-indent-offset 4)
+#+END_SRC
+** Programming Helpers
+Fic mode highlights words like "FIXME" or "TODO" in comments. I have
+edited fic-mode.el to add my own highlight words and to adjust the
+face to work with my color schemes:
+#+BEGIN_SRC emacs-lisp
+(require 'fic-mode)
+(add-hook 'prog-mode-hook 'turn-on-fic-mode)
+#+END_SRC
+
+Spell check comments in programming modes:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'prog-mode-hook 'flyspell-prog-mode)
+#+END_SRC
+
+The built-in ~hl-line-mode~ minor mode will highlight the line point
+is currently on. It doesn't play well with a few of Org mode's
+overlays, but is a net win for code editing so I add it to my
+~prog-mode-hook~.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'prog-mode-hook (lambda () (hl-line-mode +1)))
+#+END_SRC
+
+Within programming modes, (particularly Java) names like
+~StereotypicallyVerboseJavaIdentifier~ are easier to edit if Emacs
+breaks the "word" at the capitalized identifiers
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'prog-mode-hook (lambda () (subword-mode)))
+#+END_SRC
+
+I like autocreation of delimiters in programming modes:
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'prog-mode-hook (lambda () (electric-pair-mode)))
+#+END_SRC
+
+To augment ~electric-pair-mode~ I also *advise* =DEL= to handle paired
+delimiters so that, if I have point in =()=, hitting =DEL= deletes
+both and keeps my delimiters balanced.
+
+Note that advising a function generally isn't a good idea, but I can't
+find an appropriate hook.
+
+#+BEGIN_SRC emacs-lisp
+(defadvice delete-backward-char (before delete-backward-char-after activate)
+  (if (between-pair t)
+      (delete-forward-char 1)))
+#+END_SRC
+
+As with my smart-indent =RET=, this is based on my =between-pair=, but it
+includes quote characters here. I can't just get by wrapping ~delete-backward-char~
+
+** Autocomplete
+A drop-down autocompletion library
+#+BEGIN_SRC emacs-lisp
+(require 'auto-complete-config)
+(ac-config-default)
+(setq ac-use-fuzzy t)
+(setq ac-quick-help-delay 1)
+#+END_SRC
+Plays nicely with ESS out of the box.
+** IELM
+Getting AutoComplete to work with =IELM= the =Inferior Emacs Lisp
+Mode=:
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load 'ielm
+    '(progn
+       (add-hook 'inferior-emacs-lisp-mode-hook
+                 (lambda ()
+                   (auto-complete-mode 1)
+                   (turn-on-eldoc-mode)
+                   (mapc
+                    (lambda (src) (add-to-list 'ac-sources-src))
+                    '(ac-source-functions
+                      ac-source-variables
+                      ac-source-features
+                      ac-source-symbols))))))
+#+END_SRC
+** YASnippet
+A snippet library for emacs:
+#+BEGIN_SRC emacs-lisp
+(require 'yasnippet)
+(setq yas-snippet-dirs '("~/.emacs.d/snippets"))
+(yas-global-mode 1)
+#+END_SRC
+** Markdown
+I don't use markdown much since I find org-mode more useful, but
+having it around doesn't hurt anything:
+#+BEGIN_SRC emacs-lisp
+(autoload 'markdown-mode "markdown-mode"
+  "Major mode for editing Markdown files" t)
+(add-to-list 'auto-mode-alist '("\\.markdown\\'" . markdown-mode))
+(add-to-list 'auto-mode-alist '("\\.md\\'" . markdown-mode))
+(add-hook 'markdown-mode-hook 'auto-fill-mode)
+(add-hook 'markdown-mode-hook 'flyspell-mode)
+#+END_SRC
+As with most of my text writing modes, I keep line wrapping and spell
+check on by default.
+** Uniquify
+Better buffer name uniquifying:
+#+BEGIN_SRC emacs-lisp
+(require 'uniquify)
+(setq uniquify-buffer-name-style 'post-forward) ;; Disambiguation at the
+                                           ;; end of the buffer name
+(setq uniquify-separator "|")
+(setq uniquify-after-kill-buffer-p t) ;; Rename after one of the
+                                      ;; conflicts is killed
+(setq uniquify-ignore-buffers-re "^\\*") ;; Some modes need these left alone
+
+#+END_SRC
+** Rainbow Delimiters
+I find rainbow delimiters useful for most programming modes and indispensable with
+writing Lisp:
+#+BEGIN_SRC emacs-lisp
+(require 'rainbow-delimiters)
+(add-hook 'prog-mode-hook 'rainbow-delimiters-mode)
+#+END_SRC
+In addition, I like seeing unmatched parens stand out a bit more:
+#+BEGIN_SRC emacs-lisp
+(set-face-attribute 'rainbow-delimiters-unmatched-face nil
+                    :foreground 'unspecified
+                    :inherit 'error
+                    :bold t)
+#+END_SRC
+** Rainbow Mode
+Rainbow mode highlights color names and codes in programming modes:
+#+BEGIN_SRC emacs-lisp
+(require 'rainbow-mode)
+(add-hook 'prog-mode-hook 'rainbow-mode)
+#+END_SRC
+** Calendar Tweaks
+From Steve Yegge, these seem a more useful way to handle the Emacs
+calendar:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'calendar-load-hook '(lambda()
+                                 (setq mark-holidays-in-calendar t)
+                                 (define-key calendar-mode-map ">" "scroll-calendar-left")
+                                 (define-key calendar-mode-map "<" "scroll-calenadr-right")))
+#+END_SRC
+** TESTING Ack-and-a-Half
+[[http://youtube.com/watch?v=sKmyl5D8Da8][Ack]] is basically a better =grep= (if for no other reason than ignoring
+=.git= directories).
+#+BEGIN_SRC emacs-lisp
+(require 'ack-and-a-half)
+(defalias 'ack 'ack-and-a-half)
+(defalias 'ack-same 'ack-and-a-half-same)
+(defalias 'ack-find-file 'ack-and-a-half-find-file)
+(defalias 'ack-find-file-same 'ack-and-a-half-find-file-same)
+(defalias 'eshell/ack 'ack-and-a-half)
+#+END_SRC
+** Houston Sunrise and Sunset
+Houston is located at (29.72 N, 95.40 W). Emacs provides a
+~sunrise-sunset~ function to calculate sunrise and sunset times at a
+particular longitude and latitude. The following sets
+Houston's location so I don't have to look it up frequently.
+#+BEGIN_SRC emacs-lisp
+(setq calendar-latitude 29.72)
+(setq calendar-longitude -95.40)
+(setq calendar-location-name "Houston, TX")
+#+END_SRC
+** ASCII Tools
+Put an ASCII table in a temp buffer:
+#+BEGIN_SRC emacs-lisp
+(defun ascii-table (&optional limit base ncol)
+  "Print the ASCII table (chars 0 - 127).
+
+ Given the optional argument LIMIT, print the characters up to
+ char LIMIT.
+
+ Optional argument BASE can be either 8 (octal), 10 (decimal -
+ default), or 16 (hex).
+
+ Optional argument NCOL is the number of columns in the output."
+  (interactive "P")
+  (with-output-to-temp-buffer "*ASCII*"
+    (switch-to-buffer "*ASCII*")
+    (erase-buffer)
+    (local-set-key "q" 'bury-buffer)
+    (let* ((fmt (cond ((eq base 16) "%4x %4s")
+                     ((eq base 8) "%4o %4s")
+                     (t "%4d %4s")))
+          (i 0)
+          (limit (or limit 127))
+          (ncol (or ncol 4))
+          (nrow (ceiling (/ limit (+ 0.0 ncol)))))
+      (insert (format "  ASCII characters up to number %d.\n" limit))
+      (insert "  ==================================\n\n")
+      (while (<= i nrow)
+          (dotimes (row ncol i)
+            (let ((char (+ i (* row nrow))))
+              (if (<= char limit)
+                  (insert (format fmt char (single-key-description char))))))
+        (setq i (1+ i))
+        (newline)))
+    (beginning-of-buffer)))
+#+END_SRC
+Highlight non-ascii characters:
+#+BEGIN_SRC emacs-lisp
+(defun occur-non-ascii ()
+  "Find any non-ascii characters in the current buffer."
+  (interactive)
+  (occur "[^[:ascii:]]"))
+#+END_SRC
+** Scratch Buffer
+I don't like loosing the scratch buffer, but if I do, this tends to be
+a much better replacement:
+#+BEGIN_SRC emacs-lisp
+(defun scratch (&optional arg)
+  (interactive "p")
+  (if current-prefix-arg
+      (switch-to-buffer "*scratch*")
+    (progn
+      (let* ((current-mode major-mode)
+             (scratch-buffer-name (concat (buffer-name) "-SCRATCH")))
+        (split-window)
+        (switch-to-buffer scratch-buffer-name)
+        (funcall current-mode)))))
+
+(global-set-key (kbd "<f11>") 'scratch)
+#+END_SRC
+** ReBuilder
+Emacs' built-in ~re-builder~ is very useful, but can turn into
+backslash soup:
+
+#+BEGIN_SRC emacs-lisp
+(require 're-builder)
+(setq reb-re-syntax 'string)
+#+END_SRC
+This makes it slightly more like one would expect.
+
+Note a few little-known ~re-builder~ keybindings:
+- C-c C-c :: Toggle case sensitivity
+- C-c C-e :: Move into "sub-expression" mode to highlight capturing
+             groups
+- C-c C-s :: Move forward one capture
+- C-c C-r :: Move backward one capture
+- C-c C-w :: Copy the regex to the kill ring and apply any needed
+             elisp escapes
+
+To these I add my own ~C-c C-q~ to exit ~re-builder~:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'reb-mode-hook (lambda ()
+                           (local-set-key (kbd "C-c C-q")
+                                          (lambda ()
+                                            (interactive)
+                                            (kill-buffer)
+                                            (delete-window)))))
+#+END_SRC
+and ~C-c C-k~ to reset the regexp:
+#+BEGIN_SRC emacs-lisp
+(add-hook 'reb-mode-hook (lambda ()
+                           (local-set-key (kbd "C-c C-k")
+                                          (lambda ()
+                                            (interactive)
+                                            (goto-char 3)
+                                            (kill-line)
+                                            (insert "\"")
+                                            (backward-char)))))
+#+END_SRC
+** Tip of the Day
+Emacs is a massive beast so the following code for a
+[[http://emacs.wordpress.com/2007/06/21/tip-of-the-day/][Tip of the Day]] occasionally shows useful new features.
+
+#+BEGIN_SRC emacs-lisp
+(defun totd ()
+  (interactive)
+  (random t) ;; seed with time-of-day
+  (with-output-to-temp-buffer "*Tip of the day*"
+    (let* ((commands (loop for s being the symbols
+                           when (commandp s) collect s))
+           (command (nth (random (length commands)) commands)))
+      (princ
+       (concat "Your tip for the day is:\n"
+               "========================\n\n"
+               (describe-function command)
+               "\n\nInvoke with:\n\n"
+               (with-temp-buffer
+                 (where-is command t)
+                 (buffer-string))))))
+  (kill-buffer "*Help*"))
+#+END_SRC
+** Time
+I like having Emacs show me the time:
+#+BEGIN_SRC emacs-lisp
+(setq display-time-default-load-average nil)
+(display-time-mode +1)
+#+END_SRC
+** Uniq Lines
+A helpful duplicate line remover:
+#+BEGIN_SRC emacs-lisp
+(defun uniq-lines (beg end)
+  "Unique lines in region.
+Called from a program, there are two arguments:
+BEG and END (region to sort)."
+  (interactive "r")
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (kill-line 1)
+        (yank)
+        (let ((next-line (point)))
+          (while
+              (re-search-forward
+               (format "^%s" (regexp-quote (car kill-ring))) nil t)
+            (replace-match "" nil nil))
+          (goto-char next-line))))))
+#+END_SRC
+** JSON Beautifier
+Python provides a nice JSON pretty-printer which we can take advantage
+of:
+#+BEGIN_SRC emacs-lisp
+(defun json-format ()
+  (interactive)
+  (save-excursion
+    (shell-command-on-region (mark) (point)
+                             "python -m json.tool" (buffer-name) t)))
+#+END_SRC
+** Startup
+I load eshell early since it's a bit slow:
+#+BEGIN_SRC emacs-lisp
+
+(add-hook 'after-init-hook 'eshell)
+#+END_SRC
+I like seeing my org-mode agenda and a tip of the day at startup:
+#+BEGIN_SRC emacs-lisp
+(when (window-system)
+  (add-hook 'after-init-hook 'totd)
+  (add-hook 'after-init-hook
+            (lambda ()
+              (split-window)
+              (org-agenda-list)
+              (split-window)
+              (balance-windows))))
+#+END_SRC
+* Modes Not Yet In Use
+I want to check out
+- Emacs IPython Notebook
+- Gnus
+- Googling within Emacs from  [[http://emacsredux.com/blog/2013/03/28/google/][Emacs Redux]]
+- Whitespace mode
+- Web Mode for multi-language documents (HTML and JS)
+#+BEGIN_SRC emacs-lisp
+(require 'web-mode)
+(add-to-list 'auto-mode-alist '("\\.html\\'" . web-mode))
+#+END_SRC
+* Footnotes
+
+[fn:1] I think LibreOffice 4 or newer will work, but I'm not sure.
+
+[fn:2] Cf. [[http://stackoverflow.com/a/21394337][Stefan Monnier]] on Stack Overflow

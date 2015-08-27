@@ -1,0 +1,63 @@
+[submodule ".emacs.d/lisp/smex"]
+	path = .emacs.d/lisp/smex
+	url = https://github.com/nonsequitur/smex.git
+[submodule ".emacs.d/lisp/undo-tree"]
+	path = .emacs.d/lisp/undo-tree
+	url = http://www.dr-qubit.org/git/undo-tree.git
+[submodule ".emacs.d/lisp/switch-window"]
+	path = .emacs.d/lisp/switch-window
+	url = https://github.com/dimitri/switch-window.git
+[submodule ".emacs.d/lisp/deft"]
+	path = .emacs.d/lisp/deft
+	url = git://jblevins.org/git/deft.git
+[submodule ".emacs.d/lisp/auctex"]
+	path = .emacs.d/lisp/auctex
+	url = git://git.sv.gnu.org/auctex.git
+[submodule ".emacs.d/lisp/tomorrow-theme"]
+	path = .emacs.d/lisp/tomorrow-theme
+	url = https://github.com/ChrisKempson/Tomorrow-Theme
+[submodule ".emacs.d/lisp/ESS"]
+	path = .emacs.d/lisp/ESS
+	url = https://github.com/emacs-ess/ESS
+[submodule ".emacs.d/lisp/flycheck"]
+	path = .emacs.d/lisp/flycheck
+	url = https://github.com/flycheck/flycheck.git
+[submodule ".emacs.d/lisp/dash"]
+	path = .emacs.d/lisp/dash
+	url = https://github.com/magnars/dash.el.git
+[submodule ".emacs.d/lisp/elpa"]
+	path = .emacs.d/lisp/elpa
+	url = git://git.sv.gnu.org/emacs/elpa.git
+[submodule ".emacs.d/lisp/org-reveal"]
+	path = .emacs.d/lisp/org-reveal
+	url = https://github.com/yjwen/org-reveal.git
+[submodule ".emacs.d/lisp/magit"]
+	path = .emacs.d/lisp/magit
+	url = https://github.com/magit/magit.git
+[submodule ".emacs.d/lisp/yaml"]
+	path = .emacs.d/lisp/yaml
+	url = https://github.com/yoshiki/yaml-mode
+[submodule ".emacs.d/lisp/auto-complete"]
+	path = .emacs.d/lisp/auto-complete
+	url = https://github.com/auto-complete/auto-complete.git
+[submodule ".emacs.d/lisp/popup"]
+	path = .emacs.d/lisp/popup
+	url = https://github.com/auto-complete/popup-el.git
+[submodule ".emacs.d/lisp/rainbow-delimiters"]
+	path = .emacs.d/lisp/rainbow-delimiters
+	url = https://github.com/Fanael/rainbow-delimiters.git
+[submodule ".emacs.d/lisp/ack-and-a-half"]
+	path = .emacs.d/lisp/ack-and-a-half
+	url = https://github.com/rferraz/ack-and-a-half.git
+[submodule ".emacs.d/lisp/yasnippet"]
+	path = .emacs.d/lisp/yasnippet
+	url = https://github.com/capitaomorte/yasnippet.git
+[submodule ".emacs.d/lisp/web-mode"]
+	path = .emacs.d/lisp/web-mode
+	url = https://github.com/fxbois/web-mode.git
+[submodule ".emacs.d/lisp/makey"]
+	path = .emacs.d/lisp/makey
+	url = https://github.com/mickeynp/makey.git
+[submodule ".emacs.d/lisp/discover"]
+	path = .emacs.d/lisp/discover
+	url = https://github.com/mickeynp/discover.el.git
