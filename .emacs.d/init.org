@@ -1928,6 +1928,34 @@ graphical output:
       (concat temporary-file-directory (make-temp-name "figure-") ".png")))
 #+END_SRC
 
+*** Python
+We do some hackery to allow blank lines in python code being run
+through Org-Babel. The default machinery breaks code on newlines
+before sending it to the subprocess (when running with a persistent
+session) so we pre-process code before Org processes it:
+#+BEGIN_SRC emacs-lisp
+(defcustom org-babel-python-session-allow-blank-lines t
+ "Allow blank lines in python src blocks evaluated in sessions"
+ :group 'org-babel
+ :type 'boolean)
+
+(defun org-babel-python-clean-session-input (x)
+ "Clean Python by replacing blank lines with a single comment character
+  before handing to the Python intepreter.
+  This shouldn't break anything since indentation is only checked on
+  non-blank lines"
+  (if org-babel-python-session-allow-blank-lines
+      (let* ((body x)
+             (lines (split-string body "\n"))
+             (is_indented (mapcar (lambda (x) (string-match "^\s+[^\s]" x)) lines))
+             (next_indented (append (cdr is_indented) '(nil))))
+        (mapconcat (lambda (x) x) (cl-mapcar (lambda (x y) (if (and y (string-match "^\s*$" x)) "#" x)) lines next_indented) "\n"))
+    x))
+
+(advice-add 'org-babel-python-evaluate-session :around
+            (lambda (orig-fun session body &rest args)
+              (apply orig-fun (cons session (cons (org-babel-python-clean-session-input body) args)))))
+#+END_SRC
 * Eshell
 My eshell is pretty tricked out as well.
 
