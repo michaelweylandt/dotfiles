@@ -1452,6 +1452,58 @@ A more casual style based on my Princeton thesis:
                ("\\subparagraph{%s}" . "\\subparagraph*{%s}")
                ))
 #+END_SRC
+*** MWHW
+I add an org-mode declaration for my standard homework template
+=mwhw.cls=:
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-classes
+             '("mwhw"
+               "\\documentclass{mwhw}
+                [NO-DEFAULT-PACKAGES]"
+               ("\\nextproblem[%s]" . "\\nextproblem[%s]")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")
+               ))
+#+END_SRC
+We add some special org-mode =#+KEYWORD= declarations which set the
+required settings for this class:
+#+BEGIN_SRC emacs-lisp
+(defun org-latex-set-mwhw-info (contents backend info)
+  "Set keywords for mwhw LaTeX class"
+  (when (and (org-export-derived-backend-p backend 'latex)
+             (string-equal (plist-get info ':latex-class) "mwhw"))
+    (let ((course-id (org-get-property-keyword "COURSE_ID"))
+          (course-name (org-get-property-keyword "COURSE_NAME"))
+          (instructor (org-get-property-keyword "INSTRUCTOR"))
+          (institution (org-get-property-keyword "INSTITUTION"))
+          (term (org-get-property-keyword "TERM"))
+          (assignment (org-get-property-keyword "ASSIGNMENT")))
+        (replace-regexp-in-string
+         "\\\\documentclass{mwhw}"
+         (format "\\\\documentclass{mwhw}
+                  \\\\courseid{%s}
+                  \\\\coursename{%s}
+                  \\\\instructor{%s}
+                  \\\\institution{%s}
+                  \\\\term{%s}"
+                 course-id
+                 course-name
+                 instructor
+                 institution
+                 term)
+         (replace-regexp-in-string
+          "\\\\title{\\(.*\\)}"
+          "\\\\assignment{\\1}"
+          (replace-regexp-in-string
+           "\\\\author\\(.*\\){\\(.*\\)\\\\thanks{\\(.*\\)}}"
+           "\\\\author\\1{\\\\href{mailto:\\3}{\\2}}"
+           contents))))))
+
+(add-to-list 'org-export-filter-final-output-functions
+             'org-latex-set-mwhw-info)
+#+END_SRC
 *** Email Filter
 Certain LaTeX classes -- in particular the AMS classes -- provide a
 =\email= macro. By default Org places the email in a =\thanks= macro
