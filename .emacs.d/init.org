@@ -1550,7 +1550,10 @@ highlighting.
 #+END_SRC
 This requires that you have the ~pygmentize~ script on your $PATH and
 that ~pdflatex~ is run with the =-shell-escape= flag.
-
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-pdf-process
+ (repelm "pdflatex -interaction nonstopmode -shell-escape -output-directory %o %f" 3))
+#+END_SRC
 In particular, I prefer Pygments' =tango= style so I use a filter to
 set the =minted= style during LaTeX export.
 #+BEGIN_SRC emacs-lisp
