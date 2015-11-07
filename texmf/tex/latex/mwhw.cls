@@ -22,6 +22,12 @@
 % This class is based on the scrartcl class
 \LoadClass[fontsize=10pt,paper=letter]{scrartcl}
 
+\RequirePackage{graphicx}
+\RequirePackage{longtable}
+\RequirePackage{float}
+\RequirePackage{wrapfig}
+\RequirePackage{ulem}
+\normalem
 \RequirePackage{enumerate}
 \RequirePackage{palatino}
 \RequirePackage[english]{babel}
@@ -38,6 +44,11 @@
 \RequirePackage{xcolor}
 \RequirePackage{hyperref}
 \RequirePackage[all]{hypcap}
+\RequirePackage[parfill]{parskip}
+\RequirePackage{cancel}
+\RequirePackage{bm}
+\RequirePackage{bbm}
+\newcommand{\1}{\mathbbm{1}}
 %%%%%%%%
 % Required variables
 % - Class ID: e.g., STAT 100
@@ -128,3 +139,12 @@
 \DeclareMathOperator{\Var}{Var}
 
 \renewcommand{\tableofcontents}{}
+\newcommand{\dif}[1]{\,\mathrm{d}#1}
+
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\notindep}{\cancel{\perp\!\!\!\perp}}
+
+\newcommand{\iid}{\text{i.i.d.}}
+\newcommand{\simiid}{\buildrel{\iid}\over{\sim}}
+
+\newcommand\numberthis{\stepcounter{equation}\tag{\theequation}}
