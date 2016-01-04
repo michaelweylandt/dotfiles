@@ -43,9 +43,21 @@
 \RequirePackage{lettrine}
 \RequirePackage{lipsum}
 \RequirePackage[bitstream-charter]{mathdesign}
+\RequirePackage{multicol}
 \RequirePackage{mathrsfs}
 \RequirePackage{soul}
 \RequirePackage{xcolor}
+\RequirePackage{footnotebackref}
+
+% Make footnotebackref work with Memoir
+% http://tex.stackexchange.com/a/116398
+\makeatletter
+    \renewcommand\@makefntext[1]{%
+        \let\BHFN@thefnmark\@thefnmark
+        \renewcommand\@thefnmark{\hyperref[\BackrefFootnoteTag]{\BHFN@thefnmark}}%
+        \BHFN@OldMakefntext{#1}}%
+\makeatother
+
 
 %% Useful color definitions
 \definecolor{navyblue}{HTML}{006EB8}
@@ -64,7 +76,7 @@
             citecolor=forestgreen}
 
 %% Exercises, problems, theorems, etc (numbered chapter-wise)
-
+\theoremstyle{definition}
 \newtheorem{exercise}{Exercise}[chapter]
 \newtheorem{problem}{Problem}[chapter]
 
@@ -152,6 +164,8 @@
 \DeclareMathOperator{\argmin}{arg\,min}
 \DeclareMathOperator{\argmax}{arg\,max}
 \DeclareMathOperator{\subto}{subject\,to}
+\DeclareMathOperator{\Tr}{Tr}
+\DeclareMathOperator{\rank}{rank}
 
 \newcommand{\dif}[1]{\,\mathrm{d}#1}
 \newcommand{\indep}{\perp\!\!\!\perp}

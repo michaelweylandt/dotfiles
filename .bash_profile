@@ -24,3 +24,9 @@ xmodmap ~/.xmodmap 2>/dev/null
 export GREP_OPTIONS="--exclude-dir='.git' -I --color=auto --exclude=*pyc"
 
 umask 0077
+
+function psldd {
+    cat /proc/$1/maps | fgrep ".so" | awk '{print $6}' | sort -u
+}
+
+alias tetris='emacs -Q -f tetris'

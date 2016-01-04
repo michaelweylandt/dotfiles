@@ -137,6 +137,7 @@
 \newcommand{\F}{\mathscr{F}}
 \DeclareMathOperator{\Cov}{Cov}
 \DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Tr}{Tr}
 
 \renewcommand{\tableofcontents}{}
 \newcommand{\dif}[1]{\,\mathrm{d}#1}
@@ -146,5 +147,9 @@
 
 \newcommand{\iid}{\text{i.i.d.}}
 \newcommand{\simiid}{\buildrel{\iid}\over{\sim}}
+
+\newcommand{\toP}{\buildrel{\text{P}}\over{\to}}
+\newcommand{\toD}{\buildrel{\text{D}}\over{\to}}
+\newcommand{\toAS}{\buildrel{\text{a.s.}}\over{\to}}
 
 \newcommand\numberthis{\stepcounter{equation}\tag{\theequation}}
