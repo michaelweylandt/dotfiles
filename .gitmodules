@@ -61,3 +61,6 @@
 [submodule ".emacs.d/lisp/discover"]
 	path = .emacs.d/lisp/discover
 	url = https://github.com/mickeynp/discover.el.git
+[submodule "texmf/tex/latex/external/mtheme"]
+	path = texmf/tex/latex/external/mtheme
+	url = http://github.com/matze/mtheme.git
