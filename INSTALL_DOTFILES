@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+"""
+Install dotfiles for a user
+---------------------------
+
+This script creates a set of symlinks from the user's home directory
+to this folder in order to provide a standard set of dotfiles.
+"""
+
+import argparse
+import getpass
+import os
+import os.path as op
+
+NOT_DOTFILES = [".git", ".gitmodules", "INSTALL_DOTFILES"]
+
+for d in os.listdir("."):
+    if d not in NOT_DOTFILES:
+        source = op.abspath(d)
+        link_name = op.expanduser(op.join("~", d))
+
+        if not op.exists(link_name):
+            print("Creating symlink: %s --> %s" % (link_name, source))
+            os.symlink(source, link_name)
