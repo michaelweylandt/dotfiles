@@ -48,7 +48,6 @@
 \RequirePackage{cancel}
 \RequirePackage{bm}
 \RequirePackage{bbm}
-\newcommand{\1}{\mathbbm{1}}
 %%%%%%%%
 % Required variables
 % - Class ID: e.g., STAT 100
@@ -128,13 +127,37 @@
 
 \newcommand{\nextproblem}[1][Problem \arabic{section}]{\stepcounter{section}\section*{#1}}
 
+% Math BB Symbols
+\newcommand{\B}{\mathbb{B}}
 \newcommand{\E}{\mathbb{E}}
-\newcommand{\R}{\mathbb{R}}
 \newcommand{\N}{\mathbb{N}}
 \renewcommand{\P}{\mathbb{P}}
+\newcommand{\R}{\mathbb{R}}
+\usepackage{bm}
+
+% Bold Symbols
+\newcommand{\bbeta}{\bm{\beta}}
+\newcommand{\bA}{\bm{A}}
+\newcommand{\bB}{\bm{B}}
+\newcommand{\bH}{\bm{H}}
+\newcommand{\bI}{\bm{I}}
+\newcommand{\bc}{\bm{c}}
+\newcommand{\bx}{\bm{x}}
+\newcommand{\bX}{\bm{X}}
+\newcommand{\by}{\bm{y}}
+\newcommand{\bY}{\bm{Y}}
+\newcommand{\bz}{\bm{z}}
+\newcommand{\bzero}{\bm{0}}
+\newcommand{\bone}{\bm{1}}
+
+% Others
 \newcommand{\Power}{\mathscr{P}}
 \renewcommand{\S}{\mathcal{S}}
 \newcommand{\F}{\mathscr{F}}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\Corr}{Corr}
 \DeclareMathOperator{\Cov}{Cov}
 \DeclareMathOperator{\Var}{Var}
 \DeclareMathOperator{\Tr}{Tr}

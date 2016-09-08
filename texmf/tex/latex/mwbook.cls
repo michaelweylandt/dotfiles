@@ -36,6 +36,7 @@
 \RequirePackage{datetime}
 \RequirePackage{enumerate}
 \RequirePackage{epstopdf}
+\RequirePackage{etoolbox}
 \RequirePackage{float}
 \RequirePackage{graphicx}
 \RequirePackage{hyperref}
@@ -150,6 +151,7 @@
 %% Useful default commands
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\F}{\mathscr{F}}
+\newcommand{\C}{\mathbb{C}}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\N}{\mathbb{N}}
 \renewcommand{\P}{\mathbb{P}}
@@ -166,6 +168,11 @@
 \DeclareMathOperator{\subto}{subject\,to}
 \DeclareMathOperator{\Tr}{Tr}
 \DeclareMathOperator{\rank}{rank}
+
+\newcommand{\deq}{\buildrel{\text{d}}\over{=}}
+\newcommand{\toAS}{\buildrel{\text{a.s.}}\over{\to}}
+\newcommand{\toP}{\buildrel{\text{P}}\over{\to}}
+\newcommand{\toD}{\buildrel{\text{D}}\over{\to}}
 
 \newcommand{\dif}[1]{\,\mathrm{d}#1}
 \newcommand{\indep}{\perp\!\!\!\perp}
